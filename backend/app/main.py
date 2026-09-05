@@ -5,6 +5,7 @@ from app.api.v1.users import router as users_router
 from app.core.database import engine
 from app.api.v1.profile import router as profile_router
 from app.api.v1.onboarding import router as onboarding_router
+from app.api.v1.muscles import router as muscles_router
 
 
 app = FastAPI(
@@ -26,6 +27,10 @@ app.include_router(
 )
 app.include_router(
     onboarding_router,
+    prefix="/api/v1",
+)
+app.include_router(
+    muscles_router,
     prefix="/api/v1",
 )
 
