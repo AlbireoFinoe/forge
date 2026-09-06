@@ -27,6 +27,14 @@ DIFFICULTY_RANK = {
 MAX_SETS_PER_EXERCISE = 5
 MAX_PHYSICAL_SETS_PER_SESSION = 30
 DEMAND_TOLERANCE = 0.25
+SPILLOVER_CREDIT_FACTOR = 0.50
+EXPOSURE_RETENTION_RATIO = {
+    "maintenance": 0.75,
+    "normal": 0.50,
+    "high": 0.60,
+}
+
+MIN_RETAINED_EFFECTIVE_SETS = 2.0
 
 
 @dataclass
@@ -324,6 +332,60 @@ def _build_reason_codes(
     return reasons
 
 
+def _build_weekly_targets(
+    distribution: VolumeDistributionPlan,
+) -> dict[str, float]:
+
+    targets: dict[str, float] = {}
+
+    for allocation in distribution.allocations:
+        targets[
+            allocation.muscle_code
+        ] = (
+            targets.get(
+                allocation.muscle_code,
+                0.0,
+            )
+            + allocation.target_effective_sets
+        )
+
+    return targets
+
+
+def _apply_weekly_contribution(
+    exercise: ExerciseCandidate,
+    weekly_remaining: dict[str, float],
+    current_target_muscles: set[str],
+) -> None:
+
+    for muscle_code in weekly_remaining:
+        contribution = (
+            exercise.contribution_for(
+                muscle_code
+            )
+        )
+
+        if contribution <= 0:
+            continue
+
+        if (
+            muscle_code
+            not in current_target_muscles
+        ):
+            contribution *= (
+                SPILLOVER_CREDIT_FACTOR
+            )
+
+        weekly_remaining[
+            muscle_code
+        ] = max(
+            0.0,
+            weekly_remaining[
+                muscle_code
+            ] - contribution,
+        )
+
+
 def _select_for_session(
     context: GeneratorContext,
     session,
@@ -333,6 +395,7 @@ def _select_for_session(
         ...
     ],
     weekly_usage: dict[str, int],
+    weekly_remaining: dict[str, float],
 ) -> SessionExercisePlan:
 
     allocations = [
@@ -343,11 +406,64 @@ def _select_for_session(
         == session.day_order
     ]
 
-    targets = {
-        allocation.muscle_code: float(
+    targets = {}
+
+    for allocation in allocations:
+        muscle_code = (
+            allocation.muscle_code
+        )
+
+        scheduled_target = float(
             allocation.target_effective_sets
         )
-        for allocation in allocations
+
+        priority = (
+            context.muscle_priorities.get(
+                muscle_code,
+                "normal",
+            )
+        )
+
+        retention_ratio = (
+            EXPOSURE_RETENTION_RATIO.get(
+                priority,
+                0.50,
+            )
+        )
+
+        retained_floor = min(
+            scheduled_target,
+            max(
+                MIN_RETAINED_EFFECTIVE_SETS,
+                scheduled_target
+                * retention_ratio,
+            ),
+        )
+
+        remaining_weekly = (
+            weekly_remaining.get(
+                muscle_code,
+                scheduled_target,
+            )
+        )
+
+        adjusted_target = max(
+            retained_floor,
+            min(
+                scheduled_target,
+                remaining_weekly,
+            ),
+        )
+
+        targets[muscle_code] = round(
+            adjusted_target,
+            2,
+        )
+
+    targets = {
+        muscle: target
+        for muscle, target in targets.items()
+        if target > DEMAND_TOLERANCE
     }
 
     target_muscles = set(
@@ -362,6 +478,24 @@ def _select_for_session(
         muscle_code: 0.0
         for muscle_code in targets
     }
+
+    if not targets:
+        return SessionExercisePlan(
+            day_of_week=(
+                session.day_of_week
+            ),
+            day_order=(
+                session.day_order
+            ),
+            session_name=(
+                session.name
+            ),
+            exercises=(),
+            target_effective_sets={},
+            achieved_effective_sets={},
+            remaining_effective_sets={},
+            physical_sets=0,
+        )
 
     session_candidates = [
         exercise
@@ -490,6 +624,16 @@ def _select_for_session(
             achieved=achieved,
         )
 
+        _apply_weekly_contribution(
+            exercise=best,
+            weekly_remaining=(
+                weekly_remaining
+            ),
+            current_target_muscles=set(
+                targets
+            ),
+        )
+
     selected_items = list(
         selected.values()
     )
@@ -568,6 +712,54 @@ def _select_for_session(
     )
 
 
+def select_session_exercises(
+    context: GeneratorContext,
+    session,
+    distribution: VolumeDistributionPlan,
+    pool: tuple[
+        ExerciseCandidate,
+        ...
+    ],
+    weekly_usage: dict[str, int],
+    weekly_remaining: dict[str, float],
+) -> SessionExercisePlan:
+
+    return _select_for_session(
+        context=context,
+        session=session,
+        distribution=distribution,
+        pool=pool,
+        weekly_usage=weekly_usage,
+        weekly_remaining=weekly_remaining,
+    )
+
+
+def _apply_selected_session_credit(
+    session: SessionExercisePlan,
+    weekly_remaining: dict[str, float],
+) -> None:
+
+    target_muscles = set(
+        session.target_effective_sets
+    )
+
+    for selected in session.exercises:
+        for _ in range(
+            selected.sets
+        ):
+            _apply_weekly_contribution(
+                exercise=(
+                    selected.exercise
+                ),
+                weekly_remaining=(
+                    weekly_remaining
+                ),
+                current_target_muscles=(
+                    target_muscles
+                ),
+            )
+
+
 def select_exercises(
     context: GeneratorContext,
     split_plan: SplitPlan,
@@ -588,17 +780,35 @@ def select_exercises(
         int,
     ] = {}
 
+    weekly_remaining = (
+        _build_weekly_targets(
+            distribution
+        )
+    )
+
     session_plans = []
 
     for session in split_plan.sessions:
-        session_plans.append(
-            _select_for_session(
+        selected_session = (
+            select_session_exercises(
                 context=context,
                 session=session,
                 distribution=distribution,
                 pool=pool,
                 weekly_usage=weekly_usage,
+                weekly_remaining=(
+                    weekly_remaining
+                ),
             )
+        )
+
+        session_plans.append(
+            selected_session
+        )
+
+        _apply_selected_session_credit(
+            selected_session,
+            weekly_remaining,
         )
 
     return ExerciseSelectionPlan(

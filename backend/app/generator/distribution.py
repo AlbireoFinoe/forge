@@ -3,6 +3,9 @@ from itertools import combinations
 from math import ceil
 
 from app.generator.context import GeneratorContext
+from app.generator.fatigue import (
+    training_capacity_factor,
+)
 from app.generator.split import SplitPlan
 from app.generator.volume import VolumePlan
 
@@ -26,6 +29,9 @@ MAX_EFFECTIVE_SETS_PER_EXPOSURE = {
     "normal": 6,
     "high": 6,
 }
+
+
+MIN_EFFECTIVE_SETS_PER_EXPOSURE = 2
 
 
 MUSCLE_FALLBACK_FOCUS = {
@@ -64,6 +70,11 @@ MUSCLE_FALLBACK_FOCUS = {
         "QUADS",
         "HAMSTRINGS",
         "CALVES",
+    },
+
+    "TRAPS": {
+        "BACK",
+        "REAR_DELTS",
     },
 }
 
@@ -124,6 +135,7 @@ def _session_supports_muscle(
 
 
 def _selection_score(
+    context: GeneratorContext,
     sessions,
     current_load: dict[int, int],
     estimated_sets: int,
@@ -133,6 +145,13 @@ def _selection_score(
     score = 0.0
 
     for session in sessions:
+        capacity = (
+            training_capacity_factor(
+                context,
+                session.day_of_week,
+            )
+        )
+
         # Existing sport/recovery cost.
         score += (
             session.sport_conflict_score
@@ -158,9 +177,21 @@ def _selection_score(
         # Stronger soft penalty when one session
         # becomes substantially heavier than
         # the weekly average.
-        overload_threshold = (
-            soft_session_target * 1.15
+        capacity_target = (
+            soft_session_target
+            * capacity
         )
+
+        overload_threshold = (
+            capacity_target
+            * 1.15
+        )
+
+        # Explicit penalty for placing volume
+        # on a reduced-capacity day.
+        score += (
+            1.0 - capacity
+        ) * 12.0
 
         if projected_load > overload_threshold:
             score += (
@@ -195,6 +226,7 @@ def _selection_score(
 
 
 def _select_sessions(
+    context: GeneratorContext,
     candidate_sessions,
     exposure_count: int,
     current_load: dict[int, int],
@@ -220,6 +252,7 @@ def _select_sessions(
         exposure_count,
     ):
         score = _selection_score(
+            context=context,
             sessions=candidate,
             current_load=current_load,
             estimated_sets=estimated_sets,
@@ -239,9 +272,12 @@ def _select_sessions(
 
 
 def _allocate_integer_sets(
+    context: GeneratorContext,
     total_sets: int,
     sessions,
     current_load: dict[int, int],
+    soft_session_target: float,
+    priority: str,
 ) -> list[int]:
 
     count = len(sessions)
@@ -249,36 +285,111 @@ def _allocate_integer_sets(
     if count == 0:
         return []
 
-    base = total_sets // count
-    remainder = total_sets % count
+    max_per_exposure = (
+        MAX_EFFECTIVE_SETS_PER_EXPOSURE[
+            priority
+        ]
+    )
+
+    if (
+        total_sets
+        > max_per_exposure * count
+    ):
+        raise VolumeDistributionError(
+            f"Cannot distribute "
+            f"{total_sets} sets across "
+            f"{count} sessions for "
+            f"priority {priority}"
+        )
 
     allocations = [
-        base
+        0
         for _ in sessions
     ]
 
-    # Extra set goes to the session with
-    # the lowest projected workload first.
-    ranking = sorted(
-        range(count),
-        key=lambda index: (
-            current_load[
-                sessions[index].day_order
-            ],
-            sessions[
-                index
-            ].sport_conflict_score,
-            sessions[
-                index
-            ].recovery_conflict_score,
-            sessions[
-                index
-            ].day_of_week,
-        ),
+    minimum = (
+        MIN_EFFECTIVE_SETS_PER_EXPOSURE
+        if total_sets >= count * 2
+        else 1
     )
 
-    for index in ranking[:remainder]:
-        allocations[index] += 1
+    # Every chosen exposure receives
+    # meaningful minimum work first.
+    for index in range(count):
+        allocations[index] = minimum
+
+    remaining = (
+        total_sets
+        - minimum * count
+    )
+
+    while remaining > 0:
+        eligible = [
+            index
+            for index in range(count)
+            if allocations[index]
+            < max_per_exposure
+        ]
+
+        if not eligible:
+            raise VolumeDistributionError(
+                "Unable to distribute "
+                "volume within exposure limits"
+            )
+
+        def allocation_score(
+            index: int,
+        ):
+            session = sessions[index]
+
+            capacity = (
+                training_capacity_factor(
+                    context,
+                    session.day_of_week,
+                )
+            )
+
+            effective_capacity = max(
+                soft_session_target
+                * capacity,
+                1.0,
+            )
+
+            projected_load = (
+                current_load[
+                    session.day_order
+                ]
+                + allocations[index]
+                + 1
+            )
+
+            load_ratio = (
+                projected_load
+                / effective_capacity
+            )
+
+            conflict_penalty = (
+                session.sport_conflict_score
+                * 0.015
+                + session.recovery_conflict_score
+                * 0.01
+            )
+
+            return (
+                load_ratio
+                + conflict_penalty
+            )
+
+        best_index = min(
+            eligible,
+            key=allocation_score,
+        )
+
+        allocations[
+            best_index
+        ] += 1
+
+        remaining -= 1
 
     return allocations
 
@@ -400,6 +511,7 @@ def distribute_volume(
 
         selected_sessions = (
             _select_sessions(
+                context=context,
                 candidate_sessions=(
                     candidate_sessions
                 ),
@@ -419,6 +531,7 @@ def distribute_volume(
 
         set_distribution = (
             _allocate_integer_sets(
+                context=context,
                 total_sets=(
                     volume_target
                     .target_effective_sets
@@ -428,6 +541,12 @@ def distribute_volume(
                 ),
                 current_load=(
                     current_load
+                ),
+                soft_session_target=(
+                    soft_session_target
+                ),
+                priority=(
+                    volume_target.priority
                 ),
             )
         )
