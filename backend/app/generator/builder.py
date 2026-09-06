@@ -55,6 +55,10 @@ class ProgramBuildResult:
         dict[str, float]
     )
 
+    planning_actual_effective_sets: (
+        dict[str, float]
+    )
+
 
 def _apply_fitted_weekly_credit(
     session: FittedSessionPlan,
@@ -101,6 +105,55 @@ def _apply_fitted_weekly_credit(
             )
 
 
+def _apply_fitted_actual(
+    session: FittedSessionPlan,
+    weekly_actual: dict[str, float],
+) -> None:
+
+    for item in session.exercises:
+        candidate = (
+            item.exercise.exercise
+        )
+
+        for muscle_code in (
+            weekly_actual
+        ):
+            contribution = (
+                candidate.contribution_for(
+                    muscle_code
+                )
+                * item.sets
+            )
+
+            if contribution <= 0:
+                continue
+
+            weekly_actual[
+                muscle_code
+            ] += contribution
+
+
+def _apply_fitted_usage(
+    session: FittedSessionPlan,
+    weekly_usage: dict[str, int],
+) -> None:
+
+    for item in session.exercises:
+        code = (
+            item.exercise
+            .exercise
+            .code
+        )
+
+        weekly_usage[code] = (
+            weekly_usage.get(
+                code,
+                0,
+            )
+            + 1
+        )
+
+
 def build_program_plan(
     db: Session,
     context: GeneratorContext,
@@ -131,12 +184,22 @@ def build_program_plan(
         context,
     )
 
-    weekly_remaining = {
+    weekly_targets = {
         muscle_code: float(
             target.target_effective_sets
         )
         for muscle_code, target
         in volume_plan.targets.items()
+    }
+
+    weekly_remaining = dict(
+        weekly_targets
+    )
+
+    weekly_actual = {
+        muscle_code: 0.0
+        for muscle_code
+        in weekly_targets
     }
 
     weekly_usage: dict[
@@ -169,6 +232,12 @@ def build_program_plan(
                 weekly_remaining=(
                     weekly_remaining
                 ),
+                weekly_targets=(
+                    weekly_targets
+                ),
+                weekly_actual=(
+                    weekly_actual
+                ),
             )
         )
 
@@ -193,6 +262,16 @@ def build_program_plan(
         _apply_fitted_weekly_credit(
             fitted,
             weekly_remaining,
+        )
+
+        _apply_fitted_actual(
+            fitted,
+            weekly_actual,
+        )
+
+        _apply_fitted_usage(
+            fitted,
+            weekly_usage,
         )
 
     return ProgramBuildResult(
@@ -222,5 +301,13 @@ def build_program_plan(
             )
             for muscle, remaining
             in weekly_remaining.items()
+        },
+        planning_actual_effective_sets={
+            muscle: round(
+                actual,
+                2,
+            )
+            for muscle, actual
+            in weekly_actual.items()
         },
     )

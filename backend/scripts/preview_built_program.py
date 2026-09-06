@@ -145,6 +145,29 @@ def main():
                 f"{remaining}"
             )
 
+        print()
+        print(
+            "Planning actual effective sets"
+        )
+
+        for muscle, actual in sorted(
+            result
+            .planning_actual_effective_sets
+            .items()
+        ):
+            target = (
+                result
+                .volume_plan
+                .targets[muscle]
+                .target_effective_sets
+            )
+
+            print(
+                f"{muscle:<16}"
+                f"{actual:<6}"
+                f" / {target}"
+            )
+
     finally:
         db.close()
 

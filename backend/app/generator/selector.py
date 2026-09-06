@@ -396,6 +396,8 @@ def _select_for_session(
     ],
     weekly_usage: dict[str, int],
     weekly_remaining: dict[str, float],
+    weekly_targets: dict[str, float],
+    weekly_actual: dict[str, float],
 ) -> SessionExercisePlan:
 
     allocations = [
@@ -431,6 +433,42 @@ def _select_for_session(
             )
         )
 
+        weekly_target = (
+            weekly_targets.get(
+                muscle_code,
+                scheduled_target,
+            )
+        )
+
+        actual_so_far = (
+            weekly_actual.get(
+                muscle_code,
+                0.0,
+            )
+        )
+
+        actual_remaining = max(
+            0.0,
+            weekly_target
+            - actual_so_far,
+        )
+
+        # If real accumulated stimulus has
+        # already satisfied this muscle,
+        # do not force another exposure.
+        if (
+            actual_remaining
+            <= DEMAND_TOLERANCE
+        ):
+            continue
+
+        planning_remaining = (
+            weekly_remaining.get(
+                muscle_code,
+                actual_remaining,
+            )
+        )
+
         retained_floor = min(
             scheduled_target,
             max(
@@ -440,25 +478,36 @@ def _select_for_session(
             ),
         )
 
-        remaining_weekly = (
-            weekly_remaining.get(
-                muscle_code,
-                scheduled_target,
-            )
+        # Retention may never force more work
+        # than the real weekly deficit.
+        retained_floor = min(
+            retained_floor,
+            actual_remaining,
         )
 
-        adjusted_target = max(
-            retained_floor,
-            min(
-                scheduled_target,
-                remaining_weekly,
+        planning_target = min(
+            scheduled_target,
+            planning_remaining,
+        )
+
+        adjusted_target = min(
+            actual_remaining,
+            max(
+                planning_target,
+                retained_floor,
             ),
         )
 
-        targets[muscle_code] = round(
-            adjusted_target,
-            2,
-        )
+        if (
+            adjusted_target
+            > DEMAND_TOLERANCE
+        ):
+            targets[
+                muscle_code
+            ] = round(
+                adjusted_target,
+                2,
+            )
 
     targets = {
         muscle: target
@@ -624,16 +673,6 @@ def _select_for_session(
             achieved=achieved,
         )
 
-        _apply_weekly_contribution(
-            exercise=best,
-            weekly_remaining=(
-                weekly_remaining
-            ),
-            current_target_muscles=set(
-                targets
-            ),
-        )
-
     selected_items = list(
         selected.values()
     )
@@ -676,16 +715,6 @@ def _select_for_session(
             )
         )
 
-        weekly_usage[
-            item.exercise.code
-        ] = (
-            weekly_usage.get(
-                item.exercise.code,
-                0,
-            )
-            + 1
-        )
-
     return SessionExercisePlan(
         day_of_week=session.day_of_week,
         day_order=session.day_order,
@@ -722,6 +751,8 @@ def select_session_exercises(
     ],
     weekly_usage: dict[str, int],
     weekly_remaining: dict[str, float],
+    weekly_targets: dict[str, float],
+    weekly_actual: dict[str, float],
 ) -> SessionExercisePlan:
 
     return _select_for_session(
@@ -731,6 +762,8 @@ def select_session_exercises(
         pool=pool,
         weekly_usage=weekly_usage,
         weekly_remaining=weekly_remaining,
+        weekly_targets=weekly_targets,
+        weekly_actual=weekly_actual,
     )
 
 
@@ -760,6 +793,53 @@ def _apply_selected_session_credit(
             )
 
 
+def _apply_selected_session_actual(
+    session: SessionExercisePlan,
+    weekly_actual: dict[str, float],
+) -> None:
+
+    for selected in session.exercises:
+        candidate = (
+            selected.exercise
+        )
+
+        for muscle_code in (
+            weekly_actual
+        ):
+            contribution = (
+                candidate.contribution_for(
+                    muscle_code
+                )
+                * selected.sets
+            )
+
+            if contribution <= 0:
+                continue
+
+            weekly_actual[
+                muscle_code
+            ] += contribution
+
+
+def _apply_selected_session_usage(
+    session: SessionExercisePlan,
+    weekly_usage: dict[str, int],
+) -> None:
+
+    for selected in session.exercises:
+        code = (
+            selected.exercise.code
+        )
+
+        weekly_usage[code] = (
+            weekly_usage.get(
+                code,
+                0,
+            )
+            + 1
+        )
+
+
 def select_exercises(
     context: GeneratorContext,
     split_plan: SplitPlan,
@@ -780,11 +860,21 @@ def select_exercises(
         int,
     ] = {}
 
-    weekly_remaining = (
+    weekly_targets = (
         _build_weekly_targets(
             distribution
         )
     )
+
+    weekly_remaining = dict(
+        weekly_targets
+    )
+
+    weekly_actual = {
+        muscle_code: 0.0
+        for muscle_code
+        in weekly_targets
+    }
 
     session_plans = []
 
@@ -799,6 +889,12 @@ def select_exercises(
                 weekly_remaining=(
                     weekly_remaining
                 ),
+                weekly_targets=(
+                    weekly_targets
+                ),
+                weekly_actual=(
+                    weekly_actual
+                ),
             )
         )
 
@@ -809,6 +905,16 @@ def select_exercises(
         _apply_selected_session_credit(
             selected_session,
             weekly_remaining,
+        )
+
+        _apply_selected_session_actual(
+            selected_session,
+            weekly_actual,
+        )
+
+        _apply_selected_session_usage(
+            selected_session,
+            weekly_usage,
         )
 
     return ExerciseSelectionPlan(
