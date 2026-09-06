@@ -392,6 +392,38 @@ EXERCISES = [
     },
 
     # =========================
+    # FOREARMS
+    # =========================
+    {
+        "code": "DUMBBELL_REVERSE_CURL",
+        "name": "Dumbbell Reverse Curl",
+        "primary": "FOREARMS",
+        "movement": "pronated_elbow_flexion",
+        "difficulty": "beginner",
+        "compound": False,
+        "min_reps": 10,
+        "max_reps": 15,
+        "rest": 75,
+        "equipment": ["DUMBBELL"],
+        "secondary": {
+            "BICEPS": 0.4,
+        },
+    },
+    {
+        "code": "DUMBBELL_WRIST_CURL",
+        "name": "Dumbbell Wrist Curl",
+        "primary": "FOREARMS",
+        "movement": "wrist_flexion",
+        "difficulty": "beginner",
+        "compound": False,
+        "min_reps": 12,
+        "max_reps": 20,
+        "rest": 60,
+        "equipment": ["DUMBBELL"],
+        "secondary": {},
+    },
+
+    # =========================
     # TRICEPS
     # =========================
     {
