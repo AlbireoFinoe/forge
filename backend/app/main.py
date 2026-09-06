@@ -9,6 +9,7 @@ from app.api.v1.muscles import router as muscles_router
 from app.api.v1.equipment import router as equipment_router
 from app.api.v1.sports import router as sports_router
 from app.api.v1.exercises import router as exercises_router
+from app.api.v1.programs import router as programs_router
 
 
 app = FastAPI(
@@ -47,6 +48,10 @@ app.include_router(
 )
 app.include_router(
     exercises_router,
+    prefix="/api/v1",
+)
+app.include_router(
+    programs_router,
     prefix="/api/v1",
 )
 
