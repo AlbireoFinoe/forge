@@ -34,6 +34,12 @@ EXPOSURE_RETENTION_RATIO = {
     "high": 0.60,
 }
 
+WEEKLY_OVERSHOOT_PENALTY = {
+    "maintenance": 5.0,
+    "normal": 4.0,
+    "high": 2.5,
+}
+
 MIN_RETAINED_EFFECTIVE_SETS = 2.0
 
 
@@ -135,6 +141,28 @@ def _exercise_relevant(
     )
 
 
+def _apply_projected_actual_one_set(
+    exercise: ExerciseCandidate,
+    projected_weekly_actual: dict[str, float],
+) -> None:
+
+    for muscle_code in (
+        projected_weekly_actual
+    ):
+        contribution = (
+            exercise.contribution_for(
+                muscle_code
+            )
+        )
+
+        if contribution <= 0:
+            continue
+
+        projected_weekly_actual[
+            muscle_code
+        ] += contribution
+
+
 def _score_candidate(
     context: GeneratorContext,
     exercise: ExerciseCandidate,
@@ -142,6 +170,8 @@ def _score_candidate(
     selected: dict[str, MutableExerciseSelection],
     used_movements: set[str],
     weekly_usage: dict[str, int],
+    weekly_targets: dict[str, float],
+    projected_weekly_actual: dict[str, float],
 ) -> float:
 
     score = 0.0
@@ -204,6 +234,75 @@ def _score_candidate(
                 0.8
                 * priority_weight
             )
+
+    # Penalize a candidate when one more
+    # physical set pushes any muscle farther
+    # beyond its real weekly target.
+    for (
+        muscle_code,
+        weekly_target,
+    ) in weekly_targets.items():
+
+        contribution = (
+            exercise.contribution_for(
+                muscle_code
+            )
+        )
+
+        if contribution <= 0:
+            continue
+
+        actual_before = (
+            projected_weekly_actual.get(
+                muscle_code,
+                0.0,
+            )
+        )
+
+        actual_after = (
+            actual_before
+            + contribution
+        )
+
+        overshoot_before = max(
+            0.0,
+            actual_before
+            - weekly_target,
+        )
+
+        overshoot_after = max(
+            0.0,
+            actual_after
+            - weekly_target,
+        )
+
+        added_overshoot = max(
+            0.0,
+            overshoot_after
+            - overshoot_before,
+        )
+
+        if added_overshoot <= 0:
+            continue
+
+        priority = (
+            context.muscle_priorities.get(
+                muscle_code,
+                "normal",
+            )
+        )
+
+        penalty_weight = (
+            WEEKLY_OVERSHOOT_PENALTY.get(
+                priority,
+                4.0,
+            )
+        )
+
+        score -= (
+            added_overshoot
+            * penalty_weight
+        )
 
     if muscles_helped >= 2:
         score += 1.0
@@ -528,6 +627,10 @@ def _select_for_session(
         for muscle_code in targets
     }
 
+    projected_weekly_actual = dict(
+        weekly_actual
+    )
+
     if not targets:
         return SessionExercisePlan(
             day_of_week=(
@@ -619,6 +722,12 @@ def _select_for_session(
                     weekly_usage=(
                         weekly_usage
                     ),
+                    weekly_targets=(
+                        weekly_targets
+                    ),
+                    projected_weekly_actual=(
+                        projected_weekly_actual
+                    ),
                 ),
                 exercise,
             )
@@ -671,6 +780,13 @@ def _select_for_session(
             exercise=best,
             remaining=remaining,
             achieved=achieved,
+        )
+
+        _apply_projected_actual_one_set(
+            exercise=best,
+            projected_weekly_actual=(
+                projected_weekly_actual
+            ),
         )
 
     selected_items = list(
