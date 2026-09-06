@@ -406,6 +406,127 @@ def _find_trim_candidate(
     return candidates[0][2]
 
 
+def _rebalance_one_set_fragments(
+    exercises: list[FittedExercise],
+) -> list[FittedExercise]:
+
+    rebalanced = list(
+        exercises
+    )
+
+    while True:
+        fragment_index = None
+        donor_index = None
+
+        for index, fragment in enumerate(
+            rebalanced
+        ):
+            if fragment.sets != 1:
+                continue
+
+            primary_muscle = (
+                fragment
+                .exercise
+                .exercise
+                .primary_muscle
+            )
+
+            donor_candidates = [
+                donor_idx
+                for donor_idx, donor
+                in enumerate(rebalanced)
+                if (
+                    donor_idx != index
+                    and donor.sets >= 2
+                    and (
+                        donor
+                        .exercise
+                        .exercise
+                        .primary_muscle
+                        == primary_muscle
+                    )
+                )
+            ]
+
+            if not donor_candidates:
+                continue
+
+            fragment_index = index
+
+            donor_index = max(
+                donor_candidates,
+                key=lambda donor_idx: (
+                    rebalanced[
+                        donor_idx
+                    ].sets
+                ),
+            )
+
+            break
+
+        if (
+            fragment_index is None
+            or donor_index is None
+        ):
+            break
+
+        fragment = rebalanced[
+            fragment_index
+        ]
+
+        donor = rebalanced[
+            donor_index
+        ]
+
+        if donor.sets >= 3:
+            # Example:
+            #
+            # Squat 5 + Leg Extension 1
+            # becomes
+            # Squat 4 + Leg Extension 2.
+            #
+            # Total physical sets stay equal,
+            # but the 1-set fragment disappears.
+            rebalanced[
+                donor_index
+            ] = FittedExercise(
+                exercise=donor.exercise,
+                sets=donor.sets - 1,
+            )
+
+            rebalanced[
+                fragment_index
+            ] = FittedExercise(
+                exercise=fragment.exercise,
+                sets=2,
+            )
+
+        else:
+            # Example:
+            #
+            # Machine Dip 2
+            # + Triceps Extension 1
+            #
+            # becomes
+            #
+            # Machine Dip 3.
+            #
+            # This is preferable to keeping
+            # a standalone 1-set exercise.
+            rebalanced[
+                donor_index
+            ] = FittedExercise(
+                exercise=donor.exercise,
+                sets=donor.sets + 1,
+            )
+
+            rebalanced.pop(
+                fragment_index
+            )
+
+    return rebalanced
+
+
 def _trim_session(
     context: GeneratorContext,
     session: SessionExercisePlan,
@@ -503,6 +624,32 @@ def _trim_session(
 
         else:
             cleanup_index += 1
+
+    rebalanced_exercises = (
+        _rebalance_one_set_fragments(
+            exercises
+        )
+    )
+
+    if (
+        rebalanced_exercises
+        != exercises
+        and _session_seconds(
+            rebalanced_exercises
+        )
+        <= available_seconds
+    ):
+        exercises = (
+            rebalanced_exercises
+        )
+
+        if (
+            "ONE_SET_FRAGMENT_REBALANCED"
+            not in reasons
+        ):
+            reasons.append(
+                "ONE_SET_FRAGMENT_REBALANCED"
+            )
 
     achieved, remaining = (
         _recalculate_achievement(

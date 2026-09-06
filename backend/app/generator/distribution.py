@@ -225,14 +225,107 @@ def _selection_score(
     return score
 
 
+def _single_exposure_score(
+    context: GeneratorContext,
+    session,
+    muscle_code: str,
+    total_sets: int,
+    current_load: dict[int, int],
+    soft_session_target: float,
+):
+    capacity = (
+        training_capacity_factor(
+            context,
+            session.day_of_week,
+        )
+    )
+
+    effective_capacity = max(
+        soft_session_target
+        * capacity,
+        1.0,
+    )
+
+    projected_load = (
+        current_load[
+            session.day_order
+        ]
+        + total_sets
+    )
+
+    projected_load_ratio = (
+        projected_load
+        / effective_capacity
+    )
+
+    # A session where this muscle is
+    # explicitly part of the blueprint
+    # should beat a fallback placement
+    # unless constraints strongly argue
+    # otherwise.
+    fallback_penalty = (
+        0
+        if muscle_code
+        in session.focus_muscles
+        else 1
+    )
+
+    reduced_capacity_penalty = (
+        1
+        if capacity < 0.85
+        else 0
+    )
+
+    overload_penalty = max(
+        0.0,
+        projected_load_ratio - 1.15,
+    )
+
+    return (
+        reduced_capacity_penalty,
+        fallback_penalty,
+        overload_penalty,
+        projected_load_ratio,
+        -capacity,
+        session.sport_conflict_score,
+        session.recovery_conflict_score,
+        session.day_order,
+    )
+
+
 def _select_sessions(
     context: GeneratorContext,
+    muscle_code: str,
     candidate_sessions,
     exposure_count: int,
     current_load: dict[int, int],
     total_sets: int,
     soft_session_target: float,
 ):
+    if (
+        exposure_count == 1
+        and len(candidate_sessions) > 1
+    ):
+        best_session = min(
+            candidate_sessions,
+            key=lambda session: (
+                _single_exposure_score(
+                    context=context,
+                    session=session,
+                    muscle_code=muscle_code,
+                    total_sets=total_sets,
+                    current_load=current_load,
+                    soft_session_target=(
+                        soft_session_target
+                    ),
+                )
+            ),
+        )
+
+        return [
+            best_session
+        ]
+
     if exposure_count >= len(
         candidate_sessions
     ):
@@ -512,6 +605,9 @@ def distribute_volume(
         selected_sessions = (
             _select_sessions(
                 context=context,
+                muscle_code=(
+                    volume_target.muscle_code
+                ),
                 candidate_sessions=(
                     candidate_sessions
                 ),
