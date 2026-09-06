@@ -1,0 +1,608 @@
+from dataclasses import dataclass, field
+
+from app.generator.context import GeneratorContext
+from app.generator.distribution import (
+    VolumeDistributionPlan,
+)
+from app.generator.exercise_pool import (
+    ExerciseCandidate,
+)
+from app.generator.split import SplitPlan
+
+
+PRIORITY_WEIGHT = {
+    "maintenance": 0.8,
+    "normal": 1.0,
+    "high": 1.3,
+}
+
+
+DIFFICULTY_RANK = {
+    "beginner": 1,
+    "intermediate": 2,
+    "advanced": 3,
+}
+
+
+MAX_SETS_PER_EXERCISE = 5
+MAX_PHYSICAL_SETS_PER_SESSION = 30
+DEMAND_TOLERANCE = 0.25
+
+
+@dataclass
+class MutableExerciseSelection:
+    exercise: ExerciseCandidate
+    sets: int = 0
+    first_selection_index: int = 0
+    reason_codes: set[str] = field(
+        default_factory=set
+    )
+
+
+@dataclass(frozen=True)
+class SelectedExercise:
+    exercise: ExerciseCandidate
+
+    exercise_order: int
+    sets: int
+
+    min_reps: int
+    max_reps: int
+    rest_seconds: int
+
+    reason_codes: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SessionExercisePlan:
+    day_of_week: int
+    day_order: int
+    session_name: str
+
+    exercises: tuple[
+        SelectedExercise,
+        ...
+    ]
+
+    target_effective_sets: dict[
+        str,
+        float,
+    ]
+
+    achieved_effective_sets: dict[
+        str,
+        float,
+    ]
+
+    remaining_effective_sets: dict[
+        str,
+        float,
+    ]
+
+    physical_sets: int
+
+
+@dataclass(frozen=True)
+class ExerciseSelectionPlan:
+    sessions: tuple[
+        SessionExercisePlan,
+        ...
+    ]
+
+
+class ExerciseSelectorError(Exception):
+    pass
+
+
+def _difficulty_allowed(
+    context: GeneratorContext,
+    exercise: ExerciseCandidate,
+) -> bool:
+
+    user_rank = DIFFICULTY_RANK.get(
+        context.experience_level,
+        1,
+    )
+
+    exercise_rank = DIFFICULTY_RANK.get(
+        exercise.difficulty,
+        1,
+    )
+
+    return exercise_rank <= user_rank
+
+
+def _exercise_relevant(
+    exercise: ExerciseCandidate,
+    remaining: dict[str, float],
+) -> bool:
+
+    return any(
+        remaining_value > DEMAND_TOLERANCE
+        and exercise.contribution_for(
+            muscle_code
+        ) > 0
+        for muscle_code, remaining_value
+        in remaining.items()
+    )
+
+
+def _score_candidate(
+    context: GeneratorContext,
+    exercise: ExerciseCandidate,
+    remaining: dict[str, float],
+    selected: dict[str, MutableExerciseSelection],
+    used_movements: set[str],
+    weekly_usage: dict[str, int],
+) -> float:
+
+    score = 0.0
+    muscles_helped = 0
+
+    for muscle_code, demand in remaining.items():
+        if demand <= DEMAND_TOLERANCE:
+            continue
+
+        contribution = exercise.contribution_for(
+            muscle_code
+        )
+
+        if contribution <= 0:
+            continue
+
+        muscles_helped += 1
+
+        priority = (
+            context.muscle_priorities.get(
+                muscle_code,
+                "normal",
+            )
+        )
+
+        priority_weight = (
+            PRIORITY_WEIGHT.get(
+                priority,
+                1.0,
+            )
+        )
+
+        useful_contribution = min(
+            demand,
+            contribution,
+        )
+
+        overshoot = max(
+            0.0,
+            contribution - demand,
+        )
+
+        score -= (
+            overshoot
+            * priority_weight
+            * 1.25
+        )
+
+        score += (
+            useful_contribution
+            * priority_weight
+            * 3.0
+        )
+
+        if (
+            exercise.primary_muscle
+            == muscle_code
+        ):
+            score += (
+                0.8
+                * priority_weight
+            )
+
+    if muscles_helped >= 2:
+        score += 1.0
+
+        if exercise.is_compound:
+            score += 0.75
+
+    if (
+        exercise.movement_pattern
+        not in used_movements
+    ):
+        score += 0.20
+
+    else:
+        score -= 0.50
+
+    current_selection = selected.get(
+        exercise.code
+    )
+
+    if current_selection is not None:
+        if current_selection.sets < 3:
+            score += 0.90
+
+        elif (
+            current_selection.sets
+            < MAX_SETS_PER_EXERCISE
+        ):
+            score += 0.35
+
+        else:
+            score -= 100.0
+
+    else:
+        # Opening another exercise has a
+        # meaningful setup/time cost.
+        score -= 0.80
+
+    usage = weekly_usage.get(
+        exercise.code,
+        0,
+    )
+
+    if usage >= 2:
+        score -= 0.50 * (
+            usage - 1
+        )
+
+    return score
+
+
+def _apply_one_set(
+    exercise: ExerciseCandidate,
+    remaining: dict[str, float],
+    achieved: dict[str, float],
+) -> None:
+
+    for muscle_code in remaining:
+        contribution = (
+            exercise.contribution_for(
+                muscle_code
+            )
+        )
+
+        if contribution <= 0:
+            continue
+
+        achieved[muscle_code] += (
+            contribution
+        )
+
+        remaining[muscle_code] = max(
+            0.0,
+            remaining[muscle_code]
+            - contribution,
+        )
+
+
+def _build_reason_codes(
+    context: GeneratorContext,
+    exercise: ExerciseCandidate,
+    target_muscles: set[str],
+) -> set[str]:
+
+    reasons = {
+        "EQUIPMENT_MATCH",
+    }
+
+    primary_priority = (
+        context.muscle_priorities.get(
+            exercise.primary_muscle,
+            "normal",
+        )
+    )
+
+    if primary_priority == "high":
+        reasons.add(
+            "HIGH_PRIORITY_VOLUME"
+        )
+
+    if (
+        context.arm_specialization
+        and exercise.primary_muscle
+        in {"BICEPS", "TRICEPS"}
+    ):
+        reasons.add(
+            "ARM_SPECIALIZATION"
+        )
+
+    covered_targets = [
+        muscle
+        for muscle in target_muscles
+        if exercise.contribution_for(
+            muscle
+        ) > 0
+    ]
+
+    if (
+        exercise.is_compound
+        and len(covered_targets) >= 2
+    ):
+        reasons.add(
+            "MULTI_MUSCLE_EFFICIENCY"
+        )
+
+    return reasons
+
+
+def _select_for_session(
+    context: GeneratorContext,
+    session,
+    distribution: VolumeDistributionPlan,
+    pool: tuple[
+        ExerciseCandidate,
+        ...
+    ],
+    weekly_usage: dict[str, int],
+) -> SessionExercisePlan:
+
+    allocations = [
+        allocation
+        for allocation
+        in distribution.allocations
+        if allocation.day_order
+        == session.day_order
+    ]
+
+    targets = {
+        allocation.muscle_code: float(
+            allocation.target_effective_sets
+        )
+        for allocation in allocations
+    }
+
+    target_muscles = set(
+        targets
+    )
+
+    remaining = dict(
+        targets
+    )
+
+    achieved = {
+        muscle_code: 0.0
+        for muscle_code in targets
+    }
+
+    session_candidates = [
+        exercise
+        for exercise in pool
+        if (
+            exercise.primary_muscle
+            in target_muscles
+            and _difficulty_allowed(
+                context,
+                exercise,
+            )
+            and _exercise_relevant(
+                exercise,
+                remaining,
+            )
+        )
+    ]
+
+    if not session_candidates:
+        raise ExerciseSelectorError(
+            f"No eligible exercises for "
+            f"session {session.day_order}"
+        )
+
+    selected: dict[
+        str,
+        MutableExerciseSelection,
+    ] = {}
+
+    used_movements: set[str] = set()
+
+    physical_sets = 0
+    selection_counter = 0
+
+    while (
+        any(
+            value > DEMAND_TOLERANCE
+            for value in remaining.values()
+        )
+        and physical_sets
+        < MAX_PHYSICAL_SETS_PER_SESSION
+    ):
+        candidates = [
+            exercise
+            for exercise in session_candidates
+            if (
+                exercise.code not in selected
+                or selected[
+                    exercise.code
+                ].sets
+                < MAX_SETS_PER_EXERCISE
+            )
+            and _exercise_relevant(
+                exercise,
+                remaining,
+            )
+        ]
+
+        if not candidates:
+            break
+
+        scored = [
+            (
+                _score_candidate(
+                    context=context,
+                    exercise=exercise,
+                    remaining=remaining,
+                    selected=selected,
+                    used_movements=(
+                        used_movements
+                    ),
+                    weekly_usage=(
+                        weekly_usage
+                    ),
+                ),
+                exercise,
+            )
+            for exercise in candidates
+        ]
+
+        scored.sort(
+            key=lambda item: (
+                -item[0],
+                item[1].code,
+            )
+        )
+
+        best_score, best = scored[0]
+
+        if best_score <= 0:
+            break
+
+        if best.code not in selected:
+            selection_counter += 1
+
+            selected[
+                best.code
+            ] = MutableExerciseSelection(
+                exercise=best,
+                sets=0,
+                first_selection_index=(
+                    selection_counter
+                ),
+                reason_codes=(
+                    _build_reason_codes(
+                        context,
+                        best,
+                        set(targets),
+                    )
+                ),
+            )
+
+        selected[
+            best.code
+        ].sets += 1
+
+        physical_sets += 1
+
+        used_movements.add(
+            best.movement_pattern
+        )
+
+        _apply_one_set(
+            exercise=best,
+            remaining=remaining,
+            achieved=achieved,
+        )
+
+    selected_items = list(
+        selected.values()
+    )
+
+    # Compounds first, while preserving
+    # deterministic selection order.
+    selected_items.sort(
+        key=lambda item: (
+            not item.exercise.is_compound,
+            item.first_selection_index,
+            item.exercise.code,
+        )
+    )
+
+    exercises = []
+
+    for order, item in enumerate(
+        selected_items,
+        start=1,
+    ):
+        exercises.append(
+            SelectedExercise(
+                exercise=item.exercise,
+                exercise_order=order,
+                sets=item.sets,
+                min_reps=(
+                    item.exercise.min_reps
+                ),
+                max_reps=(
+                    item.exercise.max_reps
+                ),
+                rest_seconds=(
+                    item.exercise.rest_seconds
+                ),
+                reason_codes=tuple(
+                    sorted(
+                        item.reason_codes
+                    )
+                ),
+            )
+        )
+
+        weekly_usage[
+            item.exercise.code
+        ] = (
+            weekly_usage.get(
+                item.exercise.code,
+                0,
+            )
+            + 1
+        )
+
+    return SessionExercisePlan(
+        day_of_week=session.day_of_week,
+        day_order=session.day_order,
+        session_name=session.name,
+        exercises=tuple(exercises),
+        target_effective_sets=targets,
+        achieved_effective_sets={
+            muscle: round(
+                value,
+                2,
+            )
+            for muscle, value
+            in achieved.items()
+        },
+        remaining_effective_sets={
+            muscle: round(
+                value,
+                2,
+            )
+            for muscle, value
+            in remaining.items()
+        },
+        physical_sets=physical_sets,
+    )
+
+
+def select_exercises(
+    context: GeneratorContext,
+    split_plan: SplitPlan,
+    distribution: VolumeDistributionPlan,
+    pool: tuple[
+        ExerciseCandidate,
+        ...
+    ],
+) -> ExerciseSelectionPlan:
+
+    if not pool:
+        raise ExerciseSelectorError(
+            "Exercise pool is empty"
+        )
+
+    weekly_usage: dict[
+        str,
+        int,
+    ] = {}
+
+    session_plans = []
+
+    for session in split_plan.sessions:
+        session_plans.append(
+            _select_for_session(
+                context=context,
+                session=session,
+                distribution=distribution,
+                pool=pool,
+                weekly_usage=weekly_usage,
+            )
+        )
+
+    return ExerciseSelectionPlan(
+        sessions=tuple(
+            session_plans
+        )
+    )
