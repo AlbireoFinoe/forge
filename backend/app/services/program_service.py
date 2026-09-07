@@ -14,6 +14,7 @@ from app.generator.validator import (
     ProgramValidationReport,
     validate_program,
 )
+from app.models.exercise import Exercise
 from app.models.program_day import ProgramDay
 from app.models.program_exercise import (
     ProgramExercise,
@@ -302,3 +303,105 @@ def generate_and_save_program(
     except Exception:
         db.rollback()
         raise
+
+
+def get_active_program(
+    db: Session,
+    user: User,
+):
+    return db.scalar(
+        select(
+            TrainingProgram
+        )
+        .where(
+            TrainingProgram.user_id
+            == user.id,
+            TrainingProgram.status
+            == "active",
+        )
+        .order_by(
+            TrainingProgram
+            .version_number
+            .desc()
+        )
+        .limit(1)
+    )
+
+
+def get_program_days(
+    db: Session,
+    program_id,
+):
+    return db.scalars(
+        select(
+            ProgramDay
+        )
+        .where(
+            ProgramDay.program_id
+            == program_id
+        )
+        .order_by(
+            ProgramDay.day_order
+        )
+    ).all()
+
+
+def get_program_day_exercises(
+    db: Session,
+    program_day_id,
+):
+    return db.execute(
+        select(
+            ProgramExercise,
+            Exercise,
+        )
+        .join(
+            Exercise,
+            ProgramExercise.exercise_id
+            == Exercise.id,
+        )
+        .where(
+            ProgramExercise.program_day_id
+            == program_day_id
+        )
+        .order_by(
+            ProgramExercise.exercise_order
+        )
+    ).all()
+
+
+def get_user_program_history(
+    db: Session,
+    user: User,
+):
+    return db.scalars(
+        select(
+            TrainingProgram
+        )
+        .where(
+            TrainingProgram.user_id
+            == user.id
+        )
+        .order_by(
+            TrainingProgram
+            .version_number
+            .desc()
+        )
+    ).all()
+
+
+def get_user_program_by_id(
+    db: Session,
+    user: User,
+    program_id,
+):
+    return db.scalar(
+        select(
+            TrainingProgram
+        ).where(
+            TrainingProgram.id
+            == program_id,
+            TrainingProgram.user_id
+            == user.id,
+        )
+    )
