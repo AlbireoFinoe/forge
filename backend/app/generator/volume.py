@@ -37,6 +37,10 @@ ARM_MUSCLES = {
 }
 
 
+MAX_EFFECTIVE_SETS_PER_MUSCLE_PER_DAY = 6
+REFERENCE_WEEKLY_GYM_MINUTES = 5 * 75
+
+
 @dataclass(frozen=True)
 class MuscleVolumeTarget:
     muscle_code: str
@@ -69,6 +73,28 @@ def _round_sets(value: float) -> int:
     return max(
         1,
         round(value),
+    )
+
+
+def _schedule_volume_factor(
+    context: GeneratorContext,
+) -> float:
+
+    weekly_minutes = (
+        context.days_per_week
+        * context.session_duration_minutes
+    )
+
+    if weekly_minutes <= 0:
+        raise VolumeEngineError(
+            "Weekly training time must "
+            "be greater than zero"
+        )
+
+    return min(
+        1.0,
+        weekly_minutes
+        / REFERENCE_WEEKLY_GYM_MINUTES,
     )
 
 
@@ -122,15 +148,37 @@ def calculate_volume_plan(
         ):
             specialization_bonus = 2
 
-        target_sets = (
+        requested_target_sets = (
             goal_adjusted_sets
             + specialization_bonus
         )
 
-        # Safety ceiling for generator v1.
+        schedule_factor = (
+            _schedule_volume_factor(
+                context
+            )
+        )
+
+        target_sets = _round_sets(
+            requested_target_sets
+            * schedule_factor
+        )
+
+        # Global safety ceiling for generator v1.
         target_sets = min(
             target_sets,
             18,
+        )
+
+        # Per-muscle exposure feasibility.
+        schedule_cap = (
+            context.days_per_week
+            * MAX_EFFECTIVE_SETS_PER_MUSCLE_PER_DAY
+        )
+
+        target_sets = min(
+            target_sets,
+            schedule_cap,
         )
 
         targets[muscle_code] = MuscleVolumeTarget(

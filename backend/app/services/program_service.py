@@ -25,7 +25,7 @@ from app.models.training_program import (
 from app.models.user import User
 
 
-GENERATOR_VERSION = "v1"
+GENERATOR_VERSION = "v2"
 
 
 class ProgramGenerationError(Exception):

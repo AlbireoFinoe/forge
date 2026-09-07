@@ -112,6 +112,7 @@ def _calculate_actual_weekly_volume(
 
 
 def _validate_weekly_volume(
+    context: GeneratorContext,
     result: ProgramBuildResult,
     issues: list[ValidationIssue],
 ) -> tuple[
@@ -148,6 +149,23 @@ def _validate_weekly_volume(
             else 0.0
         )
 
+        primary_candidate_count = (
+            result.primary_candidate_counts.get(
+                muscle_code,
+                0,
+            )
+        )
+
+        equipment_constrained = (
+            "FULL_GYM"
+            not in context.equipment_selection
+        )
+
+        equipment_limited = (
+            equipment_constrained
+            and primary_candidate_count == 0
+        )
+
         priority = target.priority
 
         volume_results.append(
@@ -174,19 +192,41 @@ def _validate_weekly_volume(
         )
 
         if ratio < HARD_MIN_RATIO:
-            issues.append(
-                ValidationIssue(
-                    severity="error",
-                    code="WEEKLY_VOLUME_TOO_LOW",
-                    message=(
-                        f"{muscle_code}: "
-                        f"{actual_sets:.2f}/"
-                        f"{target_sets:.2f} "
-                        f"effective sets "
-                        f"({ratio:.0%})"
-                    ),
+            if equipment_limited:
+                issues.append(
+                    ValidationIssue(
+                        severity="warning",
+                        code=(
+                            "EQUIPMENT_LIMITED_COVERAGE"
+                        ),
+                        message=(
+                            f"{muscle_code}: no primary "
+                            f"exercise is eligible with "
+                            f"the current equipment; "
+                            f"achieved "
+                            f"{actual_sets:.2f}/"
+                            f"{target_sets:.2f} "
+                            f"effective sets "
+                            f"({ratio:.0%})"
+                        ),
+                    )
                 )
-            )
+            else:
+                issues.append(
+                    ValidationIssue(
+                        severity="error",
+                        code=(
+                            "WEEKLY_VOLUME_TOO_LOW"
+                        ),
+                        message=(
+                            f"{muscle_code}: "
+                            f"{actual_sets:.2f}/"
+                            f"{target_sets:.2f} "
+                            f"effective sets "
+                            f"({ratio:.0%})"
+                        ),
+                    )
+                )
 
             continue
 
@@ -295,22 +335,39 @@ def _validate_sessions(
                 )
             )
 
-        elif (
-            session.physical_sets
-            < MIN_SESSION_PHYSICAL_SETS
-        ):
-            issues.append(
-                ValidationIssue(
-                    severity="warning",
-                    code="LOW_SESSION_VOLUME",
-                    message=(
-                        f"Day {session.day_order}: "
-                        f"only "
-                        f"{session.physical_sets} "
-                        f"physical sets"
-                    ),
+        else:
+            high_intensity_sport_today = any(
+                sport.day_of_week
+                == session.day_of_week
+                and sport.intensity == "high"
+                for sport in context.sports
+            )
+
+            sport_adjusted_micro_session = (
+                high_intensity_sport_today
+                and (
+                    "SAME_DAY_SPORT_ADJUSTMENT"
+                    in session.reason_codes
                 )
             )
+
+            if (
+                session.physical_sets
+                < MIN_SESSION_PHYSICAL_SETS
+                and not sport_adjusted_micro_session
+            ):
+                issues.append(
+                    ValidationIssue(
+                        severity="warning",
+                        code="LOW_SESSION_VOLUME",
+                        message=(
+                            f"Day {session.day_order}: "
+                            f"only "
+                            f"{session.physical_sets} "
+                            f"physical sets"
+                        ),
+                    )
+                )
 
         for (
             muscle,
@@ -419,6 +476,7 @@ def validate_program(
 
     muscle_volumes = (
         _validate_weekly_volume(
+            context,
             result,
             issues,
         )

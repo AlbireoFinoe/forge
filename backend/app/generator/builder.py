@@ -59,6 +59,10 @@ class ProgramBuildResult:
         dict[str, float]
     )
 
+    primary_candidate_counts: (
+        dict[str, int]
+    )
+
 
 def _apply_fitted_weekly_credit(
     session: FittedSessionPlan,
@@ -192,6 +196,17 @@ def build_program_plan(
         in volume_plan.targets.items()
     }
 
+    primary_candidate_counts = {
+        muscle_code: sum(
+            1
+            for exercise in pool
+            if exercise.primary_muscle
+            == muscle_code
+        )
+        for muscle_code
+        in weekly_targets
+    }
+
     weekly_remaining = dict(
         weekly_targets
     )
@@ -310,4 +325,7 @@ def build_program_plan(
             for muscle, actual
             in weekly_actual.items()
         },
+        primary_candidate_counts=(
+            primary_candidate_counts
+        ),
     )

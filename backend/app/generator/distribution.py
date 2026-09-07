@@ -7,7 +7,10 @@ from app.generator.fatigue import (
     training_capacity_factor,
 )
 from app.generator.split import SplitPlan
-from app.generator.volume import VolumePlan
+from app.generator.volume import (
+    MAX_EFFECTIVE_SETS_PER_MUSCLE_PER_DAY,
+    VolumePlan,
+)
 
 
 PRIORITY_EXPOSURES = {
@@ -25,9 +28,15 @@ PRIORITY_ORDER = {
 
 
 MAX_EFFECTIVE_SETS_PER_EXPOSURE = {
-    "maintenance": 6,
-    "normal": 6,
-    "high": 6,
+    "maintenance": (
+        MAX_EFFECTIVE_SETS_PER_MUSCLE_PER_DAY
+    ),
+    "normal": (
+        MAX_EFFECTIVE_SETS_PER_MUSCLE_PER_DAY
+    ),
+    "high": (
+        MAX_EFFECTIVE_SETS_PER_MUSCLE_PER_DAY
+    ),
 }
 
 
@@ -77,6 +86,56 @@ MUSCLE_FALLBACK_FOCUS = {
         "REAR_DELTS",
     },
 }
+
+
+UPPER_BODY_MUSCLES = {
+    "CHEST",
+    "BACK",
+    "BICEPS",
+    "TRICEPS",
+    "FOREARMS",
+    "FRONT_DELTS",
+    "SIDE_DELTS",
+    "REAR_DELTS",
+    "TRAPS",
+}
+
+
+LOWER_BODY_MUSCLES = {
+    "QUADS",
+    "HAMSTRINGS",
+    "GLUTES",
+    "CALVES",
+}
+
+
+def _session_is_same_region(
+    muscle_code: str,
+    focus_muscles: tuple[str, ...],
+) -> bool:
+
+    focus = set(
+        focus_muscles
+    )
+
+    if muscle_code in UPPER_BODY_MUSCLES:
+        return bool(
+            focus
+            & UPPER_BODY_MUSCLES
+        )
+
+    if muscle_code in LOWER_BODY_MUSCLES:
+        return bool(
+            focus
+            & LOWER_BODY_MUSCLES
+        )
+
+    if muscle_code == "ABS":
+        # Core work can reasonably be placed
+        # at the end of almost any session.
+        return True
+
+    return False
 
 
 @dataclass(frozen=True)
@@ -572,21 +631,22 @@ def distribute_volume(
         volume_target,
     ) in ordered_targets:
 
-        candidate_sessions = [
+        all_sessions = list(
+            split_plan.sessions
+        )
+
+        direct_sessions = [
             session
-            for session in split_plan.sessions
+            for session in all_sessions
             if _session_supports_muscle(
                 muscle_code,
                 session.focus_muscles,
             )
         ]
 
-        if not candidate_sessions:
-            raise VolumeDistributionError(
-                f"No suitable session found "
-                f"for muscle {muscle_code}"
-            )
-
+        # Exposure requirement is calculated
+        # against the complete gym schedule,
+        # not only the original split labels.
         exposure_count = (
             _determine_exposure_count(
                 total_sets=(
@@ -597,33 +657,162 @@ def distribute_volume(
                     volume_target.priority
                 ),
                 candidate_count=len(
-                    candidate_sessions
+                    all_sessions
                 ),
             )
         )
 
-        selected_sessions = (
-            _select_sessions(
-                context=context,
-                muscle_code=(
-                    volume_target.muscle_code
-                ),
-                candidate_sessions=(
-                    candidate_sessions
-                ),
-                exposure_count=(
-                    exposure_count
-                ),
-                current_load=current_load,
-                total_sets=(
-                    volume_target
-                    .target_effective_sets
-                ),
-                soft_session_target=(
-                    soft_session_target
-                ),
+        if len(
+            direct_sessions
+        ) >= exposure_count:
+
+            selected_sessions = (
+                _select_sessions(
+                    context=context,
+                    muscle_code=(
+                        volume_target
+                        .muscle_code
+                    ),
+                    candidate_sessions=(
+                        direct_sessions
+                    ),
+                    exposure_count=(
+                        exposure_count
+                    ),
+                    current_load=current_load,
+                    total_sets=(
+                        volume_target
+                        .target_effective_sets
+                    ),
+                    soft_session_target=(
+                        soft_session_target
+                    ),
+                )
             )
-        )
+
+        else:
+            # Keep all direct / fallback
+            # exposures first.
+            selected_sessions = list(
+                direct_sessions
+            )
+
+            needed = (
+                exposure_count
+                - len(selected_sessions)
+            )
+
+            # Tier 2:
+            # expand inside the same body region.
+            same_region_sessions = [
+                session
+                for session in all_sessions
+                if (
+                    session
+                    not in selected_sessions
+                    and _session_is_same_region(
+                        muscle_code,
+                        session.focus_muscles,
+                    )
+                )
+            ]
+
+            if (
+                needed > 0
+                and same_region_sessions
+            ):
+                take = min(
+                    needed,
+                    len(
+                        same_region_sessions
+                    ),
+                )
+
+                chosen = (
+                    _select_sessions(
+                        context=context,
+                        muscle_code=(
+                            volume_target
+                            .muscle_code
+                        ),
+                        candidate_sessions=(
+                            same_region_sessions
+                        ),
+                        exposure_count=take,
+                        current_load=(
+                            current_load
+                        ),
+                        total_sets=(
+                            volume_target
+                            .target_effective_sets
+                        ),
+                        soft_session_target=(
+                            soft_session_target
+                        ),
+                    )
+                )
+
+                selected_sessions.extend(
+                    chosen
+                )
+
+                needed -= len(
+                    chosen
+                )
+
+            # Tier 3:
+            # last-resort schedule expansion.
+            #
+            # This allows, for example, a few
+            # biceps sets at the end of another
+            # session when a 3-day schedule needs
+            # three exposures to make the weekly
+            # target feasible.
+            if needed > 0:
+                remaining_sessions = [
+                    session
+                    for session in all_sessions
+                    if session
+                    not in selected_sessions
+                ]
+
+                if len(
+                    remaining_sessions
+                ) < needed:
+                    raise VolumeDistributionError(
+                        f"Not enough training "
+                        f"sessions to create "
+                        f"{exposure_count} exposures "
+                        f"for {muscle_code}"
+                    )
+
+                chosen = (
+                    _select_sessions(
+                        context=context,
+                        muscle_code=(
+                            volume_target
+                            .muscle_code
+                        ),
+                        candidate_sessions=(
+                            remaining_sessions
+                        ),
+                        exposure_count=needed,
+                        current_load=(
+                            current_load
+                        ),
+                        total_sets=(
+                            volume_target
+                            .target_effective_sets
+                        ),
+                        soft_session_target=(
+                            soft_session_target
+                        ),
+                    )
+                )
+
+                selected_sessions.extend(
+                    chosen
+                )
 
         set_distribution = (
             _allocate_integer_sets(

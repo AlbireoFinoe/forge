@@ -175,6 +175,23 @@ EXERCISES = [
         },
     },
     {
+        "code": "ONE_ARM_DUMBBELL_ROW",
+        "name": "One-Arm Dumbbell Row",
+        "primary": "BACK",
+        "movement": "horizontal_pull",
+        "difficulty": "beginner",
+        "compound": True,
+        "min_reps": 8,
+        "max_reps": 15,
+        "rest": 120,
+        "equipment": ["DUMBBELL"],
+        "secondary": {
+            "BICEPS": 0.4,
+            "REAR_DELTS": 0.4,
+            "TRAPS": 0.25,
+        },
+    },
+    {
         "code": "SEATED_CABLE_ROW",
         "name": "Seated Cable Row",
         "primary": "BACK",
@@ -234,6 +251,22 @@ EXERCISES = [
         "max_reps": 12,
         "rest": 150,
         "equipment": ["DUMBBELL"],
+        "secondary": {
+            "TRICEPS": 0.5,
+            "SIDE_DELTS": 0.4,
+        },
+    },
+    {
+        "code": "BARBELL_OVERHEAD_PRESS",
+        "name": "Barbell Overhead Press",
+        "primary": "FRONT_DELTS",
+        "movement": "vertical_push",
+        "difficulty": "intermediate",
+        "compound": True,
+        "min_reps": 6,
+        "max_reps": 12,
+        "rest": 150,
+        "equipment": ["BARBELL"],
         "secondary": {
             "TRICEPS": 0.5,
             "SIDE_DELTS": 0.4,
@@ -311,6 +344,37 @@ EXERCISES = [
             "BACK": 0.25,
         },
     },
+    {
+        "code": "DUMBBELL_REAR_DELT_FLY",
+        "name": "Bent-Over Dumbbell Rear Delt Fly",
+        "primary": "REAR_DELTS",
+        "movement": "reverse_fly",
+        "difficulty": "beginner",
+        "compound": False,
+        "min_reps": 10,
+        "max_reps": 20,
+        "rest": 75,
+        "equipment": ["DUMBBELL"],
+        "secondary": {
+            "BACK": 0.25,
+        },
+    },
+    {
+        "code": "BARBELL_REAR_DELT_ROW",
+        "name": "Barbell Rear Delt Row",
+        "primary": "REAR_DELTS",
+        "movement": "rear_delt_row",
+        "difficulty": "intermediate",
+        "compound": True,
+        "min_reps": 8,
+        "max_reps": 15,
+        "rest": 120,
+        "equipment": ["BARBELL"],
+        "secondary": {
+            "BACK": 0.4,
+            "TRAPS": 0.25,
+        },
+    },
 
     # =========================
     # BICEPS
@@ -326,6 +390,21 @@ EXERCISES = [
         "max_reps": 15,
         "rest": 90,
         "equipment": ["DUMBBELL"],
+        "secondary": {
+            "FOREARMS": 0.25,
+        },
+    },
+    {
+        "code": "BARBELL_CURL",
+        "name": "Barbell Curl",
+        "primary": "BICEPS",
+        "movement": "elbow_flexion",
+        "difficulty": "beginner",
+        "compound": False,
+        "min_reps": 8,
+        "max_reps": 15,
+        "rest": 90,
+        "equipment": ["BARBELL"],
         "secondary": {
             "FOREARMS": 0.25,
         },
@@ -410,6 +489,21 @@ EXERCISES = [
         },
     },
     {
+        "code": "BARBELL_REVERSE_CURL",
+        "name": "Barbell Reverse Curl",
+        "primary": "FOREARMS",
+        "movement": "pronated_elbow_flexion",
+        "difficulty": "beginner",
+        "compound": False,
+        "min_reps": 10,
+        "max_reps": 15,
+        "rest": 75,
+        "equipment": ["BARBELL"],
+        "secondary": {
+            "BICEPS": 0.4,
+        },
+    },
+    {
         "code": "DUMBBELL_WRIST_CURL",
         "name": "Dumbbell Wrist Curl",
         "primary": "FOREARMS",
@@ -464,6 +558,22 @@ EXERCISES = [
         "rest": 90,
         "equipment": ["DUMBBELL"],
         "secondary": {},
+    },
+    {
+        "code": "BARBELL_FLOOR_PRESS",
+        "name": "Close-Grip Barbell Floor Press",
+        "primary": "TRICEPS",
+        "movement": "horizontal_push",
+        "difficulty": "intermediate",
+        "compound": True,
+        "min_reps": 6,
+        "max_reps": 12,
+        "rest": 150,
+        "equipment": ["BARBELL"],
+        "secondary": {
+            "CHEST": 0.5,
+            "FRONT_DELTS": 0.3,
+        },
     },
     {
         "code": "CLOSE_GRIP_BENCH_PRESS",
@@ -548,6 +658,22 @@ EXERCISES = [
     # =========================
     # QUADS
     # =========================
+    {
+        "code": "GOBLET_SQUAT",
+        "name": "Goblet Squat",
+        "primary": "QUADS",
+        "movement": "squat",
+        "difficulty": "beginner",
+        "compound": True,
+        "min_reps": 8,
+        "max_reps": 15,
+        "rest": 120,
+        "equipment": ["DUMBBELL"],
+        "secondary": {
+            "GLUTES": 0.5,
+            "HAMSTRINGS": 0.2,
+        },
+    },
     {
         "code": "BARBELL_SQUAT",
         "name": "Barbell Squat",
@@ -689,6 +815,32 @@ EXERCISES = [
     # =========================
     # CALVES
     # =========================
+    {
+        "code": "DUMBBELL_CALF_RAISE",
+        "name": "Standing Dumbbell Calf Raise",
+        "primary": "CALVES",
+        "movement": "plantar_flexion",
+        "difficulty": "beginner",
+        "compound": False,
+        "min_reps": 10,
+        "max_reps": 20,
+        "rest": 75,
+        "equipment": ["DUMBBELL"],
+        "secondary": {},
+    },
+    {
+        "code": "BODYWEIGHT_CALF_RAISE",
+        "name": "Standing Bodyweight Calf Raise",
+        "primary": "CALVES",
+        "movement": "plantar_flexion",
+        "difficulty": "beginner",
+        "compound": False,
+        "min_reps": 12,
+        "max_reps": 25,
+        "rest": 60,
+        "equipment": ["BODYWEIGHT"],
+        "secondary": {},
+    },
     {
         "code": "MACHINE_CALF_RAISE",
         "name": "Machine Calf Raise",

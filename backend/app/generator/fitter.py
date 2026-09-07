@@ -408,6 +408,7 @@ def _find_trim_candidate(
 
 def _rebalance_one_set_fragments(
     exercises: list[FittedExercise],
+    available_seconds: int,
 ) -> list[FittedExercise]:
 
     rebalanced = list(
@@ -449,6 +450,45 @@ def _rebalance_one_set_fragments(
             ]
 
             if not donor_candidates:
+                exercise_candidate = (
+                    fragment
+                    .exercise
+                    .exercise
+                )
+
+                # Do not automatically promote
+                # compound movements.
+                #
+                # An extra compound set can create
+                # disproportionate systemic fatigue
+                # and secondary-muscle spillover.
+                if exercise_candidate.is_compound:
+                    continue
+
+                promoted = list(
+                    rebalanced
+                )
+
+                promoted[index] = (
+                    FittedExercise(
+                        exercise=(
+                            fragment.exercise
+                        ),
+                        sets=2,
+                    )
+                )
+
+                # Isolation fragments may safely be
+                # promoted when the extra set fits
+                # inside the session time budget.
+                if (
+                    _session_seconds(
+                        promoted
+                    )
+                    <= available_seconds
+                ):
+                    rebalanced = promoted
+
                 continue
 
             fragment_index = index
@@ -627,7 +667,8 @@ def _trim_session(
 
     rebalanced_exercises = (
         _rebalance_one_set_fragments(
-            exercises
+            exercises,
+            available_seconds,
         )
     )
 

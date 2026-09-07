@@ -42,6 +42,8 @@ WEEKLY_OVERSHOOT_PENALTY = {
 
 MIN_RETAINED_EFFECTIVE_SETS = 2.0
 
+MAINTENANCE_RESCUE_MAX_EFFECTIVE_SETS = 2.0
+
 
 @dataclass
 class MutableExerciseSelection:
@@ -161,6 +163,41 @@ def _apply_projected_actual_one_set(
         projected_weekly_actual[
             muscle_code
         ] += contribution
+
+
+def _is_duplicate_isolation_pattern(
+    exercise: ExerciseCandidate,
+    selected: dict[
+        str,
+        MutableExerciseSelection,
+    ],
+) -> bool:
+    # Compounds are allowed to coexist.
+    # This rule only prevents redundant
+    # isolation variations in one session.
+    if exercise.is_compound:
+        return False
+
+    for item in selected.values():
+        existing = item.exercise
+
+        # Re-selecting the exact same
+        # exercise simply adds another set.
+        if existing.code == exercise.code:
+            continue
+
+        if existing.is_compound:
+            continue
+
+        if (
+            existing.primary_muscle
+            == exercise.primary_muscle
+            and existing.movement_pattern
+            == exercise.movement_pattern
+        ):
+            return True
+
+    return False
 
 
 def _score_candidate(
@@ -608,6 +645,121 @@ def _select_for_session(
                 2,
             )
 
+    # Rescue unfinished maintenance volume
+    # when the current session already
+    # supports that muscle.
+    #
+    # Example:
+    # QUADS target = 6
+    # earlier session fitted only 4
+    # current session also focuses QUADS
+    # -> rescue the remaining 2 sets here.
+    session_has_scheduled_targets = bool(
+        targets
+    )
+
+    for muscle_code in (
+        session.focus_muscles
+    ):
+        priority = (
+            context
+            .muscle_priorities
+            .get(
+                muscle_code,
+                "normal",
+            )
+        )
+
+        if priority != "maintenance":
+            continue
+
+        # Normal scheduled allocation
+        # already handles this muscle.
+        if muscle_code in targets:
+            continue
+
+        future_allocations = [
+            allocation
+            for allocation
+            in distribution.allocations
+            if (
+                allocation.muscle_code
+                == muscle_code
+                and allocation.day_order
+                > session.day_order
+            )
+        ]
+
+        # Do not rescue maintenance volume
+        # early when this session already
+        # has meaningful scheduled work
+        # and the muscle still has a future
+        # planned exposure.
+        #
+        # We only rescue early when the
+        # current session would otherwise
+        # have no scheduled targets at all.
+        if (
+            future_allocations
+            and session_has_scheduled_targets
+        ):
+            continue
+
+        weekly_target = (
+            weekly_targets.get(
+                muscle_code
+            )
+        )
+
+        if weekly_target is None:
+            continue
+
+        actual_so_far = (
+            weekly_actual.get(
+                muscle_code,
+                0.0,
+            )
+        )
+
+        actual_remaining = max(
+            0.0,
+            weekly_target
+            - actual_so_far,
+        )
+
+        if (
+            actual_remaining
+            <= DEMAND_TOLERANCE
+        ):
+            continue
+
+        planning_remaining = max(
+            0.0,
+            weekly_remaining.get(
+                muscle_code,
+                actual_remaining,
+            ),
+        )
+
+        rescue_target = min(
+            (
+                MAINTENANCE_RESCUE_MAX_EFFECTIVE_SETS
+            ),
+            actual_remaining,
+            planning_remaining,
+        )
+
+        if (
+            rescue_target
+            > DEMAND_TOLERANCE
+        ):
+            targets[
+                muscle_code
+            ] = round(
+                rescue_target,
+                2,
+            )
+
     targets = {
         muscle: target
         for muscle, target in targets.items()
@@ -699,6 +851,10 @@ def _select_for_session(
                     exercise.code
                 ].sets
                 < MAX_SETS_PER_EXERCISE
+            )
+            and not _is_duplicate_isolation_pattern(
+                exercise,
+                selected,
             )
             and _exercise_relevant(
                 exercise,
