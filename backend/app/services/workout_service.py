@@ -59,6 +59,10 @@ class WorkoutHasPendingExercisesError(WorkoutError):
     pass
 
 
+class WorkoutSessionNotFoundError(WorkoutError):
+    pass
+
+
 def get_in_progress_workout(
     db: Session,
     user: User,
@@ -349,6 +353,77 @@ def skip_workout_exercise(
         raise
 
 
+def get_workout_by_id(
+    db: Session,
+    user: User,
+    workout_session_id: uuid.UUID,
+) -> WorkoutSession | None:
+    return db.scalar(
+        select(
+            WorkoutSession
+        ).where(
+            WorkoutSession.id
+            == workout_session_id,
+            WorkoutSession.user_id
+            == user.id,
+        )
+    )
+
+
+def get_workout_exercises(
+    db: Session,
+    workout_session_id: uuid.UUID,
+):
+    return db.scalars(
+        select(
+            WorkoutExercise
+        )
+        .where(
+            WorkoutExercise.workout_session_id
+            == workout_session_id
+        )
+        .order_by(
+            WorkoutExercise.exercise_order
+        )
+    ).all()
+
+
+def get_workout_sets(
+    db: Session,
+    workout_exercise_id: uuid.UUID,
+):
+    return db.scalars(
+        select(
+            WorkoutSet
+        )
+        .where(
+            WorkoutSet.workout_exercise_id
+            == workout_exercise_id
+        )
+        .order_by(
+            WorkoutSet.set_number
+        )
+    ).all()
+
+
+def get_user_workout_history(
+    db: Session,
+    user: User,
+):
+    return db.scalars(
+        select(
+            WorkoutSession
+        )
+        .where(
+            WorkoutSession.user_id
+            == user.id
+        )
+        .order_by(
+            WorkoutSession.started_at.desc()
+        )
+    ).all()
+
+
 def finish_workout(
     db: Session,
     user: User,
@@ -367,7 +442,7 @@ def finish_workout(
         )
 
         if workout_session is None:
-            raise WorkoutError(
+            raise WorkoutSessionNotFoundError(
                 "Workout session not found"
             )
 
