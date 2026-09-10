@@ -96,6 +96,35 @@ class ExerciseProgressAnalysis:
     volume_change_percent: float | None
     trend: str
 
+
+@dataclass(frozen=True)
+class ProgressOverviewItem:
+    exercise_code: str
+    exercise_name: str
+
+    history_entries: int
+    completed_sessions: int
+
+    best_weight_kg: Decimal | None
+
+    latest_top_weight_kg: Decimal | None
+    latest_volume_kg: Decimal | None
+
+    volume_change_percent: float | None
+    trend: str
+
+
+@dataclass(frozen=True)
+class ProgressOverview:
+    total_exercises: int
+
+    improving: int
+    stable: int
+    declining: int
+    insufficient_data: int
+
+    exercises: list[ProgressOverviewItem]
+
 def get_workout_progress_summary(
     db: Session,
     user: User,
@@ -622,4 +651,159 @@ def get_exercise_progress_analysis(
             volume_change_percent
         ),
         trend=trend,
+    )
+
+
+def get_progress_overview(
+    db: Session,
+    user: User,
+) -> ProgressOverview:
+
+    rows = db.execute(
+        select(
+            WorkoutExercise.exercise_code,
+            WorkoutExercise.exercise_name,
+        )
+        .join(
+            WorkoutSession,
+            WorkoutExercise.workout_session_id
+            == WorkoutSession.id,
+        )
+        .where(
+            WorkoutSession.user_id
+            == user.id,
+            WorkoutSession.status
+            == "completed",
+        )
+        .order_by(
+            WorkoutSession.completed_at.desc()
+        )
+    ).all()
+
+    latest_names: dict[str, str] = {}
+
+    for exercise_code, exercise_name in rows:
+        if exercise_code not in latest_names:
+            latest_names[
+                exercise_code
+            ] = exercise_name
+
+    overview_items = []
+
+    for exercise_code, exercise_name in (
+        latest_names.items()
+    ):
+        try:
+            analysis = (
+                get_exercise_progress_analysis(
+                    db=db,
+                    user=user,
+                    exercise_code=(
+                        exercise_code
+                    ),
+                )
+            )
+
+            item = ProgressOverviewItem(
+                exercise_code=(
+                    analysis.exercise_code
+                ),
+                exercise_name=(
+                    analysis.exercise_name
+                ),
+                history_entries=(
+                    analysis.history_entries
+                ),
+                completed_sessions=(
+                    analysis.completed_sessions
+                ),
+                best_weight_kg=(
+                    analysis.best_weight_kg
+                ),
+                latest_top_weight_kg=(
+                    analysis.latest_top_weight_kg
+                ),
+                latest_volume_kg=(
+                    analysis.latest_volume_kg
+                ),
+                volume_change_percent=(
+                    analysis.volume_change_percent
+                ),
+                trend=analysis.trend,
+            )
+
+        except ExerciseHistoryNotFoundError:
+            item = ProgressOverviewItem(
+                exercise_code=(
+                    exercise_code
+                ),
+                exercise_name=(
+                    exercise_name
+                ),
+                history_entries=0,
+                completed_sessions=0,
+                best_weight_kg=None,
+                latest_top_weight_kg=None,
+                latest_volume_kg=None,
+                volume_change_percent=None,
+                trend="insufficient_data",
+            )
+
+        overview_items.append(
+            item
+        )
+
+    trend_order = {
+        "improving": 0,
+        "declining": 1,
+        "stable": 2,
+        "insufficient_data": 3,
+    }
+
+    overview_items.sort(
+        key=lambda item: (
+            trend_order.get(
+                item.trend,
+                99,
+            ),
+            item.exercise_name.lower(),
+        )
+    )
+
+    improving = sum(
+        1
+        for item in overview_items
+        if item.trend == "improving"
+    )
+
+    stable = sum(
+        1
+        for item in overview_items
+        if item.trend == "stable"
+    )
+
+    declining = sum(
+        1
+        for item in overview_items
+        if item.trend == "declining"
+    )
+
+    insufficient_data = sum(
+        1
+        for item in overview_items
+        if item.trend
+        == "insufficient_data"
+    )
+
+    return ProgressOverview(
+        total_exercises=len(
+            overview_items
+        ),
+        improving=improving,
+        stable=stable,
+        declining=declining,
+        insufficient_data=(
+            insufficient_data
+        ),
+        exercises=overview_items,
     )

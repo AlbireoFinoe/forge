@@ -11,6 +11,7 @@ from app.api.v1.sports import router as sports_router
 from app.api.v1.exercises import router as exercises_router
 from app.api.v1.programs import router as programs_router
 from app.api.v1.workouts import router as workouts_router
+from app.api.v1.progress import router as progress_router
 
 
 app = FastAPI(
@@ -57,6 +58,10 @@ app.include_router(
 )
 app.include_router(
     workouts_router,
+    prefix="/api/v1",
+)
+app.include_router(
+    progress_router,
     prefix="/api/v1",
 )
 
