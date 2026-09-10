@@ -14,6 +14,9 @@ from app.models.exercise_secondary_muscle import ExerciseSecondaryMuscle
 from app.models.program_day import ProgramDay
 from app.models.program_exercise import ProgramExercise
 from app.models.training_program import TrainingProgram
+from app.models.workout_session import WorkoutSession
+from app.models.workout_exercise import WorkoutExercise
+from app.models.workout_set import WorkoutSet
 
 __all__ = [
     "User",
@@ -32,4 +35,7 @@ __all__ = [
     "TrainingProgram",
     "ProgramDay",
     "ProgramExercise",
+    "WorkoutSession",
+    "WorkoutExercise",
+    "WorkoutSet",
 ]
