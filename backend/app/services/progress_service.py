@@ -577,8 +577,8 @@ def get_exercise_progress_analysis(
         and previous is not None
     ):
         if (
-            previous.external_volume_kg
-            > 0
+            latest.external_volume_kg > 0
+            and previous.external_volume_kg > 0
         ):
             volume_change_percent = round(
                 (
@@ -595,6 +595,26 @@ def get_exercise_progress_analysis(
             if volume_change_percent > 5:
                 trend = "improving"
             elif volume_change_percent < -5:
+                trend = "declining"
+            else:
+                trend = "stable"
+
+        elif previous.total_reps > 0:
+            rep_change_percent = round(
+                (
+                    (
+                        latest.total_reps
+                        - previous.total_reps
+                    )
+                    / previous.total_reps
+                )
+                * 100,
+                1,
+            )
+
+            if rep_change_percent > 5:
+                trend = "improving"
+            elif rep_change_percent < -5:
                 trend = "declining"
             else:
                 trend = "stable"
