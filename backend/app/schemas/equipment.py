@@ -1,6 +1,6 @@
 import uuid
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class EquipmentResponse(BaseModel):
@@ -14,7 +14,9 @@ class EquipmentResponse(BaseModel):
 
 
 class UserEquipmentUpdate(BaseModel):
-    equipment_codes: list[str]
+    equipment_codes: list[str] = Field(
+        min_length=1,
+    )
 
     @model_validator(mode="after")
     def validate_equipment_codes(self):
