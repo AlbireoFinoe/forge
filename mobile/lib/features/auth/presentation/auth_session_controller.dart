@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/providers.dart';
 import '../data/auth_repository.dart';
 import '../data/auth_user.dart';
+import '../../onboarding/presentation/onboarding_controller.dart';
 
 enum AuthSessionStatus { authenticated, unauthenticated }
 
@@ -50,6 +51,8 @@ class AuthSessionController extends AsyncNotifier<AuthSessionState> {
   Future<void> login({required String email, required String password}) async {
     final user = await _authRepository.login(email: email, password: password);
 
+    ref.invalidate(onboardingControllerProvider);
+
     state = AsyncData(AuthSessionState.authenticated(user));
   }
 
@@ -61,6 +64,8 @@ class AuthSessionController extends AsyncNotifier<AuthSessionState> {
 
     final user = await _authRepository.login(email: email, password: password);
 
+    ref.invalidate(onboardingControllerProvider);
+
     state = AsyncData(AuthSessionState.authenticated(user));
   }
 
@@ -68,6 +73,8 @@ class AuthSessionController extends AsyncNotifier<AuthSessionState> {
     state = const AsyncLoading();
 
     await _authRepository.logout();
+
+    ref.invalidate(onboardingControllerProvider);
 
     state = const AsyncData(AuthSessionState.unauthenticated());
   }

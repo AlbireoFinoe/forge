@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../home/presentation/home_screen.dart';
+import '../../onboarding/presentation/onboarding_gate.dart';
 import 'auth_session_controller.dart';
 import 'login_screen.dart';
 
@@ -46,7 +46,7 @@ class AuthGate extends ConsumerWidget {
         final user = sessionState.user;
 
         if (sessionState.isAuthenticated && user != null) {
-          return HomeScreen(user: user);
+          return OnboardingGate(user: user);
         }
 
         return const LoginScreen();
