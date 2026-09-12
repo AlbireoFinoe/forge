@@ -5,6 +5,7 @@ import '../data/auth_repository.dart';
 import '../data/auth_user.dart';
 import '../../onboarding/presentation/onboarding_controller.dart';
 import '../../muscles/presentation/muscle_priority_controller.dart';
+import '../../equipment/presentation/equipment_controller.dart';
 
 enum AuthSessionStatus { authenticated, unauthenticated }
 
@@ -54,6 +55,7 @@ class AuthSessionController extends AsyncNotifier<AuthSessionState> {
 
     ref.invalidate(onboardingControllerProvider);
     ref.invalidate(musclePriorityControllerProvider);
+    ref.invalidate(equipmentControllerProvider);
 
     state = AsyncData(AuthSessionState.authenticated(user));
   }

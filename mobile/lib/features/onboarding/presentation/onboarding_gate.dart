@@ -6,6 +6,8 @@ import 'goal_selection_screen.dart';
 import 'onboarding_controller.dart';
 import 'training_preferences_screen.dart';
 import '../../muscles/presentation/muscle_priority_gate.dart';
+import '../../equipment/presentation/equipment_gate.dart';
+import '../../auth/presentation/auth_session_controller.dart';
 
 class OnboardingGate extends ConsumerWidget {
   const OnboardingGate({required this.user, super.key});
@@ -56,26 +58,39 @@ class OnboardingGate extends ConsumerWidget {
         }
 
         return MusclePriorityGate(
-          onComplete: Scaffold(
-            appBar: AppBar(title: const Text('FORGE')),
-            body: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.fitness_center, size: 56),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Equipment',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Muscle priorities are saved. Equipment selection is the next onboarding step.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+          onComplete: EquipmentGate(
+            onComplete: Scaffold(
+              appBar: AppBar(
+                title: const Text('FORGE'),
+                actions: [
+                  IconButton(
+                    onPressed: () {
+                      ref.read(authSessionControllerProvider.notifier).logout();
+                    },
+                    tooltip: 'Logout',
+                    icon: const Icon(Icons.logout),
+                  ),
+                ],
+              ),
+              body: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.sports_mma, size: 56),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Sports Activities',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Equipment is saved. Sports activities are the next onboarding step.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
