@@ -53,6 +53,17 @@ class AuthSessionController extends AsyncNotifier<AuthSessionState> {
     state = AsyncData(AuthSessionState.authenticated(user));
   }
 
+  Future<void> registerAndLogin({
+    required String email,
+    required String password,
+  }) async {
+    await _authRepository.register(email: email, password: password);
+
+    final user = await _authRepository.login(email: email, password: password);
+
+    state = AsyncData(AuthSessionState.authenticated(user));
+  }
+
   Future<void> logout() async {
     state = const AsyncLoading();
 
