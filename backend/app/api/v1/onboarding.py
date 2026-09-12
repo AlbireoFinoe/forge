@@ -91,6 +91,9 @@ def update_training_preferences(
         arm_specialization=(
             preferences.arm_specialization
         ),
+        sports_configured=(
+            preferences.sports_configured
+        ),
         created_at=preferences.created_at,
         updated_at=preferences.updated_at,
     )
@@ -150,6 +153,9 @@ def get_onboarding(
             ),
             arm_specialization=(
                 preferences.arm_specialization
+            ),
+            sports_configured=(
+                preferences.sports_configured
             ),
             created_at=preferences.created_at,
             updated_at=preferences.updated_at,

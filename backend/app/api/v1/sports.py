@@ -16,12 +16,15 @@ from app.schemas.sport import (
     SportActivityCreate,
     SportActivityResponse,
     SportActivityUpdate,
+    SportsSetupResponse,
+    SportsSetupUpdate,
 )
 from app.services.sport import (
     create_sport,
     delete_sport,
     get_user_sport_by_id,
     get_user_sports,
+    set_sports_configured,
     update_sport,
 )
 
@@ -64,6 +67,35 @@ def create_sport_activity(
         db,
         current_user,
         payload,
+    )
+
+
+@router.put(
+    "/setup",
+    response_model=SportsSetupResponse,
+)
+def update_sports_setup(
+    payload: SportsSetupUpdate,
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    try:
+        configured = set_sports_configured(
+            db,
+            current_user,
+            payload.configured,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+        )
+
+    return SportsSetupResponse(
+        configured=configured
     )
 
 

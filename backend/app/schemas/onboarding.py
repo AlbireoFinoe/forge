@@ -104,6 +104,7 @@ class TrainingPreferencesResponse(BaseModel):
 
     no_dedicated_leg_day: bool
     arm_specialization: bool
+    sports_configured: bool
 
     created_at: datetime
     updated_at: datetime

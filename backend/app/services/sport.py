@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.sport_activity import SportActivity
+from app.models.training_preference import TrainingPreference
 from app.models.user import User
 from app.schemas.sport import (
     SportActivityCreate,
@@ -100,3 +101,30 @@ def delete_sport(
 ) -> None:
     db.delete(sport)
     db.commit()
+
+
+def set_sports_configured(
+    db: Session,
+    user: User,
+    configured: bool,
+) -> bool:
+    statement = select(
+        TrainingPreference
+    ).where(
+        TrainingPreference.user_id == user.id
+    )
+
+    preferences = db.scalar(statement)
+
+    if preferences is None:
+        raise ValueError(
+            "Training preferences are missing"
+        )
+
+    preferences.sports_configured = configured
+
+    db.add(preferences)
+    db.commit()
+    db.refresh(preferences)
+
+    return preferences.sports_configured

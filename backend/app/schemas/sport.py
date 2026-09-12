@@ -67,3 +67,11 @@ class SportActivityResponse(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+
+class SportsSetupUpdate(BaseModel):
+    configured: bool = True
+
+
+class SportsSetupResponse(BaseModel):
+    configured: bool
