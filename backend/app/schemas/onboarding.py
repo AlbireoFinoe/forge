@@ -17,11 +17,35 @@ GoalType = Literal[
 class GoalUpdate(BaseModel):
     primary_goal: GoalType
 
+    secondary_goals: list[GoalType] = Field(
+        default_factory=list,
+        max_length=2,
+    )
+
+    @model_validator(mode="after")
+    def validate_secondary_goals(self):
+        if len(self.secondary_goals) != len(
+            set(self.secondary_goals)
+        ):
+            raise ValueError(
+                "secondary_goals cannot contain duplicates"
+            )
+
+        if self.primary_goal in self.secondary_goals:
+            raise ValueError(
+                "primary_goal cannot also be a secondary goal"
+            )
+
+        return self
+
 
 class GoalResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
     primary_goal: str
+    secondary_goals: list[str] = Field(
+        default_factory=list
+    )
     created_at: datetime
     updated_at: datetime
 

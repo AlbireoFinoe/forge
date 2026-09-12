@@ -1,5 +1,6 @@
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 
 from app.models.goal import Goal
 from app.models.training_day import TrainingDay
@@ -9,6 +10,7 @@ from app.schemas.onboarding import (
     GoalUpdate,
     TrainingPreferencesUpdate,
 )
+from app.models.secondary_goal import SecondaryGoal
 
 
 def get_goal(
@@ -20,6 +22,25 @@ def get_goal(
     )
 
     return db.scalar(statement)
+
+
+def get_secondary_goals(
+    db: Session,
+    goal: Goal,
+) -> list[str]:
+    statement = (
+        select(SecondaryGoal.goal_type)
+        .where(
+            SecondaryGoal.goal_id == goal.id
+        )
+        .order_by(
+            SecondaryGoal.goal_type
+        )
+    )
+
+    return list(
+        db.scalars(statement).all()
+    )
 
 
 def set_goal(
@@ -39,9 +60,26 @@ def set_goal(
         )
 
         db.add(goal)
+        db.flush()
 
     else:
         goal.primary_goal = payload.primary_goal
+
+    db.execute(
+        delete(SecondaryGoal).where(
+            SecondaryGoal.goal_id == goal.id
+        )
+    )
+
+    for secondary_goal in payload.secondary_goals:
+        db.add(
+            SecondaryGoal(
+                goal_id=goal.id,
+                goal_type=secondary_goal,
+            )
+        )
+
+    goal.updated_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(goal)

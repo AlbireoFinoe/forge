@@ -17,6 +17,7 @@ from app.models.training_program import TrainingProgram
 from app.models.workout_session import WorkoutSession
 from app.models.workout_exercise import WorkoutExercise
 from app.models.workout_set import WorkoutSet
+from app.models.secondary_goal import SecondaryGoal
 
 __all__ = [
     "User",
@@ -38,4 +39,5 @@ __all__ = [
     "WorkoutSession",
     "WorkoutExercise",
     "WorkoutSet",
+    "SecondaryGoal",
 ]

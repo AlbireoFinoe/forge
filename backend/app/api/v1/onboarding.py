@@ -17,6 +17,7 @@ from app.services.onboarding import (
     get_training_preferences,
     set_goal,
     set_training_preferences,
+    get_secondary_goals,
 )
 
 
@@ -37,10 +38,22 @@ def update_goal(
     ),
     db: Session = Depends(get_db),
 ):
-    return set_goal(
+    goal = set_goal(
         db,
         current_user,
         payload,
+    )
+
+    return GoalResponse(
+        id=goal.id,
+        user_id=goal.user_id,
+        primary_goal=goal.primary_goal,
+        secondary_goals=get_secondary_goals(
+            db,
+            goal,
+        ),
+        created_at=goal.created_at,
+        updated_at=goal.updated_at,
     )
 
 
@@ -98,6 +111,21 @@ def get_onboarding(
         current_user,
     )
 
+    goal_response = None
+
+    if goal is not None:
+        goal_response = GoalResponse(
+            id=goal.id,
+            user_id=goal.user_id,
+            primary_goal=goal.primary_goal,
+            secondary_goals=get_secondary_goals(
+                db,
+                goal,
+            ),
+            created_at=goal.created_at,
+            updated_at=goal.updated_at,
+        )
+
     preferences = get_training_preferences(
         db,
         current_user,
@@ -128,6 +156,6 @@ def get_onboarding(
         )
 
     return OnboardingResponse(
-        goal=goal,
+        goal=goal_response,
         training_preferences=training_response,
     )
