@@ -8,6 +8,10 @@ import '../../program/data/program_models.dart';
 import '../../program/data/program_repository.dart';
 import '../../program/presentation/program_controller.dart';
 import '../../program/presentation/program_detail_screen.dart';
+import '../../workout/data/workout_models.dart';
+import '../../workout/data/workout_repository.dart';
+import '../../workout/presentation/workout_controller.dart';
+import '../../workout/presentation/workout_session_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({required this.user, super.key});
@@ -20,6 +24,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _isGenerating = false;
+  bool _isStartingWorkout = false;
 
   Future<void> _generateProgram({required bool replacingExisting}) async {
     if (_isGenerating) {
@@ -108,9 +113,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  Future<void> _openWorkout() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) {
+          return const WorkoutSessionScreen();
+        },
+      ),
+    );
+  }
+
+  Future<void> _startWorkout(ProgramDayData day) async {
+    if (_isStartingWorkout) {
+      return;
+    }
+
+    setState(() {
+      _isStartingWorkout = true;
+    });
+
+    try {
+      await ref.read(workoutControllerProvider.notifier).startWorkout(day.id);
+
+      if (!mounted) {
+        return;
+      }
+
+      await _openWorkout();
+    } on WorkoutException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isStartingWorkout = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final program = ref.watch(programControllerProvider);
+    final workout = ref.watch(workoutControllerProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -145,15 +194,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           );
         },
         data: (data) {
-          return _HomeContent(
-            user: widget.user,
-            state: data,
-            isGenerating: _isGenerating,
-            onGenerate: () {
-              _generateProgram(replacingExisting: false);
+          return workout.when(
+            loading: () {
+              return const Center(child: CircularProgressIndicator());
             },
-            onRegenerate: () {
-              _generateProgram(replacingExisting: true);
+            error: (error, stackTrace) {
+              return _ProgramLoadError(
+                error: error,
+                onRetry: () {
+                  ref.read(workoutControllerProvider.notifier).refresh();
+                },
+              );
+            },
+            data: (workoutState) {
+              return _HomeContent(
+                user: widget.user,
+                state: data,
+                workoutState: workoutState,
+                isGenerating: _isGenerating,
+                isStartingWorkout: _isStartingWorkout,
+                onGenerate: () {
+                  _generateProgram(replacingExisting: false);
+                },
+                onRegenerate: () {
+                  _generateProgram(replacingExisting: true);
+                },
+                onStartWorkout: _startWorkout,
+                onResumeWorkout: _openWorkout,
+              );
             },
           );
         },
@@ -166,16 +234,24 @@ class _HomeContent extends StatelessWidget {
   const _HomeContent({
     required this.user,
     required this.state,
+    required this.workoutState,
     required this.isGenerating,
     required this.onGenerate,
     required this.onRegenerate,
+    required this.isStartingWorkout,
+    required this.onStartWorkout,
+    required this.onResumeWorkout,
   });
 
   final AuthUser user;
   final ProgramState state;
+  final WorkoutState workoutState;
   final bool isGenerating;
+  final bool isStartingWorkout;
   final VoidCallback onGenerate;
   final VoidCallback onRegenerate;
+  final ValueChanged<ProgramDayData> onStartWorkout;
+  final VoidCallback onResumeWorkout;
 
   @override
   Widget build(BuildContext context) {
@@ -205,7 +281,13 @@ class _HomeContent extends StatelessWidget {
                     onGenerate: onGenerate,
                   )
                 else ...[
-                  _TodayTrainingCard(program: program),
+                  _TodayTrainingCard(
+                    program: program,
+                    currentWorkout: workoutState.currentWorkout,
+                    isStartingWorkout: isStartingWorkout,
+                    onStartWorkout: onStartWorkout,
+                    onResumeWorkout: onResumeWorkout,
+                  ),
                   const SizedBox(height: 16),
                   _ActiveProgramCard(
                     program: program,
@@ -299,9 +381,19 @@ class _NoProgramCard extends StatelessWidget {
 }
 
 class _TodayTrainingCard extends StatelessWidget {
-  const _TodayTrainingCard({required this.program});
+  const _TodayTrainingCard({
+    required this.program,
+    required this.currentWorkout,
+    required this.isStartingWorkout,
+    required this.onStartWorkout,
+    required this.onResumeWorkout,
+  });
 
   final ProgramDetailData program;
+  final WorkoutSessionData? currentWorkout;
+  final bool isStartingWorkout;
+  final ValueChanged<ProgramDayData> onStartWorkout;
+  final VoidCallback onResumeWorkout;
 
   ProgramDayData? _todaySession() {
     final today = DateTime.now().weekday;
@@ -318,6 +410,7 @@ class _TodayTrainingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final session = _todaySession();
+    final inProgress = currentWorkout;
 
     return Card(
       child: Padding(
@@ -368,6 +461,43 @@ class _TodayTrainingCard extends StatelessWidget {
               Text(
                 'Your workout is ready. The interactive workout session will be connected in the next training step.',
                 style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+            if (inProgress != null) ...[
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onResumeWorkout,
+                  icon: const Icon(Icons.play_arrow),
+                  label: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text('Resume ${inProgress.dayName}'),
+                  ),
+                ),
+              ),
+            ] else if (session != null) ...[
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: isStartingWorkout
+                      ? null
+                      : () {
+                          onStartWorkout(session);
+                        },
+                  icon: const Icon(Icons.play_arrow),
+                  label: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: isStartingWorkout
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Start Workout'),
+                  ),
+                ),
               ),
             ],
           ],
