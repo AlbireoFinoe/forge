@@ -6,6 +6,7 @@ import '../data/auth_user.dart';
 import '../../onboarding/presentation/onboarding_controller.dart';
 import '../../muscles/presentation/muscle_priority_controller.dart';
 import '../../equipment/presentation/equipment_controller.dart';
+import '../../sports/presentation/sport_controller.dart';
 
 enum AuthSessionStatus { authenticated, unauthenticated }
 
@@ -56,6 +57,7 @@ class AuthSessionController extends AsyncNotifier<AuthSessionState> {
     ref.invalidate(onboardingControllerProvider);
     ref.invalidate(musclePriorityControllerProvider);
     ref.invalidate(equipmentControllerProvider);
+    ref.invalidate(sportControllerProvider);
 
     state = AsyncData(AuthSessionState.authenticated(user));
   }
@@ -70,6 +72,7 @@ class AuthSessionController extends AsyncNotifier<AuthSessionState> {
 
     ref.invalidate(onboardingControllerProvider);
     ref.invalidate(musclePriorityControllerProvider);
+    ref.invalidate(sportControllerProvider);
 
     state = AsyncData(AuthSessionState.authenticated(user));
   }
@@ -81,6 +84,7 @@ class AuthSessionController extends AsyncNotifier<AuthSessionState> {
 
     ref.invalidate(onboardingControllerProvider);
     ref.invalidate(musclePriorityControllerProvider);
+    ref.invalidate(sportControllerProvider);
 
     state = const AsyncData(AuthSessionState.unauthenticated());
   }

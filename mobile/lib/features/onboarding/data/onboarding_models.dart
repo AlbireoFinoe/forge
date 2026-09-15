@@ -88,6 +88,7 @@ class TrainingPreferencesData {
     required this.availableDays,
     required this.noDedicatedLegDay,
     required this.armSpecialization,
+    required this.sportsConfigured,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -99,22 +100,34 @@ class TrainingPreferencesData {
   final List<int> availableDays;
   final bool noDedicatedLegDay;
   final bool armSpecialization;
+  final bool sportsConfigured;
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  factory TrainingPreferencesData.fromJson(Map<String, dynamic> json) {
+  factory TrainingPreferencesData.fromJson(
+    Map<String, dynamic> json,
+  ) {
     return TrainingPreferencesData(
       id: json['id'] as String,
       userId: json['user_id'] as String,
       daysPerWeek: json['days_per_week'] as int,
-      sessionDurationMinutes: json['session_duration_minutes'] as int,
+      sessionDurationMinutes:
+          json['session_duration_minutes'] as int,
       availableDays: (json['available_days'] as List<dynamic>)
           .map((day) => day as int)
           .toList(growable: false),
-      noDedicatedLegDay: json['no_dedicated_leg_day'] as bool,
-      armSpecialization: json['arm_specialization'] as bool,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      noDedicatedLegDay:
+          json['no_dedicated_leg_day'] as bool,
+      armSpecialization:
+          json['arm_specialization'] as bool,
+      sportsConfigured:
+          json['sports_configured'] as bool,
+      createdAt: DateTime.parse(
+        json['created_at'] as String,
+      ),
+      updatedAt: DateTime.parse(
+        json['updated_at'] as String,
+      ),
     );
   }
 }
