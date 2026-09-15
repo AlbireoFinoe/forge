@@ -7,6 +7,7 @@ import '../../auth/presentation/auth_session_controller.dart';
 import '../../program/data/program_models.dart';
 import '../../program/data/program_repository.dart';
 import '../../program/presentation/program_controller.dart';
+import '../../program/presentation/program_detail_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({required this.user, super.key});
@@ -206,7 +207,18 @@ class _HomeContent extends StatelessWidget {
                 else ...[
                   _TodayTrainingCard(program: program),
                   const SizedBox(height: 16),
-                  _ActiveProgramCard(program: program),
+                  _ActiveProgramCard(
+                    program: program,
+                    onViewProgram: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) {
+                            return ProgramDetailScreen(program: program);
+                          },
+                        ),
+                      );
+                    },
+                  ),
 
                   if (state.lastGeneration?.warnings.isNotEmpty ?? false) ...[
                     const SizedBox(height: 16),
@@ -366,9 +378,13 @@ class _TodayTrainingCard extends StatelessWidget {
 }
 
 class _ActiveProgramCard extends StatelessWidget {
-  const _ActiveProgramCard({required this.program});
+  const _ActiveProgramCard({
+    required this.program,
+    required this.onViewProgram,
+  });
 
   final ProgramDetailData program;
+  final VoidCallback onViewProgram;
 
   @override
   Widget build(BuildContext context) {
@@ -405,6 +421,18 @@ class _ActiveProgramCard extends StatelessWidget {
             Text(
               '${program.totalExercises} exercise assignments • '
               'Generator ${program.generatorVersion}',
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onViewProgram,
+                icon: const Icon(Icons.calendar_month_outlined),
+                label: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Text('View Program'),
+                ),
+              ),
             ),
           ],
         ),
