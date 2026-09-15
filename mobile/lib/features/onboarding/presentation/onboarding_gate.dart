@@ -9,6 +9,7 @@ import '../../muscles/presentation/muscle_priority_gate.dart';
 import '../../equipment/presentation/equipment_gate.dart';
 import '../../auth/presentation/auth_session_controller.dart';
 import '../../sports/presentation/sports_gate.dart';
+import '../../profile/presentation/profile_gate.dart';
 
 class OnboardingGate extends ConsumerWidget {
   const OnboardingGate({required this.user, super.key});
@@ -58,55 +59,49 @@ class OnboardingGate extends ConsumerWidget {
           return const TrainingPreferencesScreen();
         }
 
-return MusclePriorityGate(
-  onComplete: EquipmentGate(
-    onComplete: SportsGate(
-      configured:
-          data.trainingPreferences!.sportsConfigured,
-      onComplete: Scaffold(
-        appBar: AppBar(
-          title: const Text('FORGE'),
-          actions: [
-            IconButton(
-              onPressed: () {
-                ref
-                    .read(
-                      authSessionControllerProvider.notifier,
-                    )
-                    .logout();
-              },
-              tooltip: 'Logout',
-              icon: const Icon(Icons.logout),
-            ),
-          ],
-        ),
-        body: const Center(
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.check_circle_outline,
-                  size: 64,
+        return ProfileGate(
+          onComplete: MusclePriorityGate(
+            onComplete: EquipmentGate(
+              onComplete: SportsGate(
+                configured: data.trainingPreferences!.sportsConfigured,
+                onComplete: Scaffold(
+                  appBar: AppBar(
+                    title: const Text('FORGE'),
+                    actions: [
+                      IconButton(
+                        onPressed: () {
+                          ref
+                              .read(authSessionControllerProvider.notifier)
+                              .logout();
+                        },
+                        tooltip: 'Logout',
+                        icon: const Icon(Icons.logout),
+                      ),
+                    ],
+                  ),
+                  body: const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle_outline, size: 64),
+                          SizedBox(height: 16),
+                          Text('Training setup complete.'),
+                          SizedBox(height: 8),
+                          Text(
+                            'FORGE is ready for the next step.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-                SizedBox(height: 16),
-                Text(
-                  'Training setup complete.',
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'FORGE is ready for the next step.',
-                  textAlign: TextAlign.center,
-                ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
-    ),
-  ),
-);
+        );
       },
     );
   }
