@@ -117,3 +117,10 @@ final workoutControllerProvider =
     AsyncNotifierProvider<WorkoutController, WorkoutState>(
       WorkoutController.new,
     );
+final workoutDetailProvider = FutureProvider.family<WorkoutSessionData, String>(
+  (ref, workoutId) {
+    final repository = ref.read(workoutRepositoryProvider);
+
+    return repository.getWorkoutById(workoutId);
+  },
+);

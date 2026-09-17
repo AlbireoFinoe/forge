@@ -12,6 +12,7 @@ import '../../workout/data/workout_models.dart';
 import '../../workout/data/workout_repository.dart';
 import '../../workout/presentation/workout_controller.dart';
 import '../../workout/presentation/workout_session_screen.dart';
+import '../../workout/presentation/workout_history_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({required this.user, super.key});
@@ -165,6 +166,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       appBar: AppBar(
         title: const Text('FORGE'),
         actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) {
+                    return const WorkoutHistoryScreen();
+                  },
+                ),
+              );
+            },
+            tooltip: 'Workout History',
+            icon: const Icon(Icons.history),
+          ),
           IconButton(
             onPressed: () {
               ref.read(programControllerProvider.notifier).refresh();
