@@ -11,11 +11,34 @@ final workoutRepositoryProvider = Provider<WorkoutRepository>((ref) {
 });
 
 class WorkoutState {
-  const WorkoutState({required this.currentWorkout});
+  const WorkoutState({required this.currentWorkout, required this.history});
 
   final WorkoutSessionData? currentWorkout;
+  final List<WorkoutSummaryData> history;
 
   bool get hasWorkoutInProgress => currentWorkout != null;
+
+  WorkoutSummaryData? get completedToday {
+    final now = DateTime.now();
+
+    for (final workout in history) {
+      final completedAt = workout.completedAt;
+
+      if (workout.status != 'completed' || completedAt == null) {
+        continue;
+      }
+
+      final local = completedAt.toLocal();
+
+      if (local.year == now.year &&
+          local.month == now.month &&
+          local.day == now.day) {
+        return workout;
+      }
+    }
+
+    return null;
+  }
 }
 
 class WorkoutController extends AsyncNotifier<WorkoutState> {
@@ -24,14 +47,18 @@ class WorkoutController extends AsyncNotifier<WorkoutState> {
   @override
   Future<WorkoutState> build() async {
     final current = await _repository.getCurrentWorkout();
+    final history = await _repository.getHistory();
 
-    return WorkoutState(currentWorkout: current);
+    return WorkoutState(currentWorkout: current, history: history);
   }
 
   Future<WorkoutSessionData> startWorkout(String programDayId) async {
     final workout = await _repository.startWorkout(programDayId);
+    final previousHistory = state.value?.history ?? <WorkoutSummaryData>[];
 
-    state = AsyncData(WorkoutState(currentWorkout: workout));
+    state = AsyncData(
+      WorkoutState(currentWorkout: workout, history: previousHistory),
+    );
 
     return workout;
   }
@@ -60,8 +87,9 @@ class WorkoutController extends AsyncNotifier<WorkoutState> {
 
   Future<WorkoutSessionData> finishWorkout(String workoutId) async {
     final completed = await _repository.finishWorkout(workoutId);
+    final history = await _repository.getHistory();
 
-    state = const AsyncData(WorkoutState(currentWorkout: null));
+    state = AsyncData(WorkoutState(currentWorkout: null, history: history));
 
     return completed;
   }
@@ -71,15 +99,17 @@ class WorkoutController extends AsyncNotifier<WorkoutState> {
 
     state = await AsyncValue.guard(() async {
       final current = await _repository.getCurrentWorkout();
+      final history = await _repository.getHistory();
 
-      return WorkoutState(currentWorkout: current);
+      return WorkoutState(currentWorkout: current, history: history);
     });
   }
 
   Future<void> _reloadCurrent() async {
     final current = await _repository.getCurrentWorkout();
+    final history = state.value?.history ?? await _repository.getHistory();
 
-    state = AsyncData(WorkoutState(currentWorkout: current));
+    state = AsyncData(WorkoutState(currentWorkout: current, history: history));
   }
 }
 

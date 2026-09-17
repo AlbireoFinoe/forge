@@ -284,6 +284,7 @@ class _HomeContent extends StatelessWidget {
                   _TodayTrainingCard(
                     program: program,
                     currentWorkout: workoutState.currentWorkout,
+                    completedToday: workoutState.completedToday,
                     isStartingWorkout: isStartingWorkout,
                     onStartWorkout: onStartWorkout,
                     onResumeWorkout: onResumeWorkout,
@@ -384,6 +385,7 @@ class _TodayTrainingCard extends StatelessWidget {
   const _TodayTrainingCard({
     required this.program,
     required this.currentWorkout,
+    required this.completedToday,
     required this.isStartingWorkout,
     required this.onStartWorkout,
     required this.onResumeWorkout,
@@ -391,6 +393,7 @@ class _TodayTrainingCard extends StatelessWidget {
 
   final ProgramDetailData program;
   final WorkoutSessionData? currentWorkout;
+  final WorkoutSummaryData? completedToday;
   final bool isStartingWorkout;
   final ValueChanged<ProgramDayData> onStartWorkout;
   final VoidCallback onResumeWorkout;
@@ -411,6 +414,12 @@ class _TodayTrainingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final session = _todaySession();
     final inProgress = currentWorkout;
+    final completed = completedToday;
+    final completedScheduledSession =
+        session != null &&
+        completed != null &&
+        completed.programVersionNumber == program.versionNumber &&
+        completed.dayOfWeek == session.dayOfWeek;
 
     return Card(
       child: Padding(
@@ -475,6 +484,18 @@ class _TodayTrainingCard extends StatelessWidget {
                     child: Text('Resume ${inProgress.dayName}'),
                   ),
                 ),
+              ),
+            ] else if (completedScheduledSession) ...[
+              const SizedBox(height: 20),
+              const Row(
+                children: [
+                  Icon(Icons.check_circle),
+                  SizedBox(width: 8),
+                  Text(
+                    'Workout completed today',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ],
               ),
             ] else if (session != null) ...[
               const SizedBox(height: 20),
