@@ -6,9 +6,14 @@ import '../data/muscle_repository.dart';
 import 'muscle_priority_controller.dart';
 
 class MusclePriorityScreen extends ConsumerStatefulWidget {
-  const MusclePriorityScreen({required this.data, super.key});
+  const MusclePriorityScreen({
+    required this.data,
+    this.settingsMode = false,
+    super.key,
+  });
 
   final MusclePrioritiesData data;
+  final bool settingsMode;
 
   @override
   ConsumerState<MusclePriorityScreen> createState() =>
@@ -43,6 +48,10 @@ class _MusclePriorityScreenState extends ConsumerState<MusclePriorityScreen> {
       await ref
           .read(musclePriorityControllerProvider.notifier)
           .savePriorities(_priorities);
+
+      if (widget.settingsMode && mounted) {
+        Navigator.of(context).pop(true);
+      }
     } on MuscleException catch (error) {
       if (!mounted) {
         return;
@@ -80,6 +89,9 @@ class _MusclePriorityScreenState extends ConsumerState<MusclePriorityScreen> {
     }
 
     return Scaffold(
+      appBar: widget.settingsMode
+          ? AppBar(title: const Text('Muscle Priorities'))
+          : null,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -144,7 +156,9 @@ class _MusclePriorityScreenState extends ConsumerState<MusclePriorityScreen> {
                               height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Continue'),
+                          : Text(
+                              widget.settingsMode ? 'Save Changes' : 'Continue',
+                            ),
                     ),
                   ),
                 ],

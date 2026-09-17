@@ -6,9 +6,14 @@ import '../data/profile_repository.dart';
 import 'profile_controller.dart';
 
 class ExperienceLevelScreen extends ConsumerStatefulWidget {
-  const ExperienceLevelScreen({required this.profile, super.key});
+  const ExperienceLevelScreen({
+    required this.profile,
+    this.settingsMode = false,
+    super.key,
+  });
 
   final ProfileData profile;
+  final bool settingsMode;
 
   @override
   ConsumerState<ExperienceLevelScreen> createState() =>
@@ -41,6 +46,10 @@ class _ExperienceLevelScreenState extends ConsumerState<ExperienceLevelScreen> {
       await ref
           .read(profileControllerProvider.notifier)
           .setExperienceLevel(selected);
+
+      if (widget.settingsMode && mounted) {
+        Navigator.of(context).pop(true);
+      }
     } on ProfileException catch (error) {
       if (!mounted) {
         return;
@@ -70,6 +79,9 @@ class _ExperienceLevelScreenState extends ConsumerState<ExperienceLevelScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: widget.settingsMode
+          ? AppBar(title: const Text('Experience Level'))
+          : null,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -120,7 +132,9 @@ class _ExperienceLevelScreenState extends ConsumerState<ExperienceLevelScreen> {
                               height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Continue'),
+                          : Text(
+                              widget.settingsMode ? 'Save Changes' : 'Continue',
+                            ),
                     ),
                   ),
                 ],

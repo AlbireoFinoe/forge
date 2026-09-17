@@ -8,9 +8,14 @@ import 'equipment_controller.dart';
 enum _EquipmentMode { fullGym, custom }
 
 class EquipmentScreen extends ConsumerStatefulWidget {
-  const EquipmentScreen({required this.data, super.key});
+  const EquipmentScreen({
+    required this.data,
+    this.settingsMode = false,
+    super.key,
+  });
 
   final EquipmentSelectionData data;
+  final bool settingsMode;
 
   @override
   ConsumerState<EquipmentScreen> createState() => _EquipmentScreenState();
@@ -103,6 +108,10 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
       await ref
           .read(equipmentControllerProvider.notifier)
           .saveSelection(_selectionToSave);
+
+      if (widget.settingsMode && mounted) {
+        Navigator.of(context).pop(true);
+      }
     } on EquipmentException catch (error) {
       if (!mounted) {
         return;
@@ -136,6 +145,9 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
         .toList(growable: false);
 
     return Scaffold(
+      appBar: widget.settingsMode
+          ? AppBar(title: const Text('Equipment'))
+          : null,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -227,7 +239,9 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
                               height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Continue'),
+                          : Text(
+                              widget.settingsMode ? 'Save Changes' : 'Continue',
+                            ),
                     ),
                   ),
                 ],

@@ -7,23 +7,19 @@ import '../data/sport_repository.dart';
 import 'sport_controller.dart';
 
 class SportsSetupScreen extends ConsumerWidget {
-  const SportsSetupScreen({
-    super.key,
-  });
+  const SportsSetupScreen({this.settingsMode = false, super.key});
+
+  final bool settingsMode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sports = ref.watch(sportControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sports Activities'),
-      ),
+      appBar: AppBar(title: const Text('Sports Activities')),
       body: sports.when(
         loading: () {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
+          return const Center(child: CircularProgressIndicator());
         },
         error: (error, stackTrace) {
           return Center(
@@ -32,27 +28,15 @@ class SportsSetupScreen extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.cloud_off,
-                    size: 48,
-                  ),
+                  const Icon(Icons.cloud_off, size: 48),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Could not load your sports activities.',
-                  ),
+                  const Text('Could not load your sports activities.'),
                   const SizedBox(height: 8),
-                  Text(
-                    error.toString(),
-                    textAlign: TextAlign.center,
-                  ),
+                  Text(error.toString(), textAlign: TextAlign.center),
                   const SizedBox(height: 24),
                   FilledButton(
                     onPressed: () {
-                      ref
-                          .read(
-                            sportControllerProvider.notifier,
-                          )
-                          .refresh();
+                      ref.read(sportControllerProvider.notifier).refresh();
                     },
                     child: const Text('Retry'),
                   ),
@@ -64,6 +48,7 @@ class SportsSetupScreen extends ConsumerWidget {
         data: (activities) {
           return _SportsSetupContent(
             activities: activities,
+            settingsMode: settingsMode,
           );
         },
       ),
@@ -74,17 +59,18 @@ class SportsSetupScreen extends ConsumerWidget {
 class _SportsSetupContent extends ConsumerStatefulWidget {
   const _SportsSetupContent({
     required this.activities,
+    required this.settingsMode,
   });
 
   final List<SportActivityData> activities;
+  final bool settingsMode;
 
   @override
   ConsumerState<_SportsSetupContent> createState() =>
       _SportsSetupContentState();
 }
 
-class _SportsSetupContentState
-    extends ConsumerState<_SportsSetupContent> {
+class _SportsSetupContentState extends ConsumerState<_SportsSetupContent> {
   bool _isCompleting = false;
 
   Future<void> _addActivity() async {
@@ -101,9 +87,7 @@ class _SportsSetupContentState
 
     try {
       await ref
-          .read(
-            sportControllerProvider.notifier,
-          )
+          .read(sportControllerProvider.notifier)
           .addSport(
             sportType: input.sportType,
             dayOfWeek: input.dayOfWeek,
@@ -115,35 +99,24 @@ class _SportsSetupContentState
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
     } catch (_) {
       if (!mounted) {
         return;
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Could not add the sport activity.',
-          ),
-        ),
+        const SnackBar(content: Text('Could not add the sport activity.')),
       );
     }
   }
 
-  Future<void> _editActivity(
-    SportActivityData activity,
-  ) async {
+  Future<void> _editActivity(SportActivityData activity) async {
     final input = await showDialog<_SportFormResult>(
       context: context,
       builder: (context) {
-        return _SportActivityDialog(
-          activity: activity,
-        );
+        return _SportActivityDialog(activity: activity);
       },
     );
 
@@ -153,9 +126,7 @@ class _SportsSetupContentState
 
     try {
       await ref
-          .read(
-            sportControllerProvider.notifier,
-          )
+          .read(sportControllerProvider.notifier)
           .editSport(
             sportId: activity.id,
             sportType: input.sportType,
@@ -168,36 +139,25 @@ class _SportsSetupContentState
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
     } catch (_) {
       if (!mounted) {
         return;
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Could not update the sport activity.',
-          ),
-        ),
+        const SnackBar(content: Text('Could not update the sport activity.')),
       );
     }
   }
 
-  Future<void> _deleteActivity(
-    SportActivityData activity,
-  ) async {
+  Future<void> _deleteActivity(SportActivityData activity) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text(
-            'Delete activity?',
-          ),
+          title: const Text('Delete activity?'),
           content: Text(
             'Remove ${activity.displayName} from your sports schedule?',
           ),
@@ -224,32 +184,21 @@ class _SportsSetupContentState
     }
 
     try {
-      await ref
-          .read(
-            sportControllerProvider.notifier,
-          )
-          .removeSport(activity.id);
+      await ref.read(sportControllerProvider.notifier).removeSport(activity.id);
     } on SportException catch (error) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
     } catch (_) {
       if (!mounted) {
         return;
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Could not delete the sport activity.',
-          ),
-        ),
+        const SnackBar(content: Text('Could not delete the sport activity.')),
       );
     }
   }
@@ -264,32 +213,25 @@ class _SportsSetupContentState
     });
 
     try {
-      await ref
-          .read(
-            sportControllerProvider.notifier,
-          )
-          .completeSetup();
+      await ref.read(sportControllerProvider.notifier).completeSetup();
+
+      if (widget.settingsMode && mounted) {
+        Navigator.of(context).pop(true);
+      }
     } on SportException catch (error) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
     } catch (_) {
       if (!mounted) {
         return;
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Could not finish sports setup.',
-          ),
-        ),
+        const SnackBar(content: Text('Could not finish sports setup.')),
       );
     } finally {
       if (mounted) {
@@ -305,9 +247,7 @@ class _SportsSetupContentState
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text(
-            'No other sports?',
-          ),
+          title: const Text('No other sports?'),
           content: const Text(
             'FORGE will build your training plan without additional sports activities. You can add them later.',
           ),
@@ -343,20 +283,14 @@ class _SportsSetupContentState
         padding: const EdgeInsets.all(24),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 640,
-            ),
+            constraints: const BoxConstraints(maxWidth: 640),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
                   'Do you do any sports outside your gym training?',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                  style: Theme.of(context).textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -366,13 +300,9 @@ class _SportsSetupContentState
                 const SizedBox(height: 24),
 
                 OutlinedButton.icon(
-                  onPressed: _isCompleting
-                      ? null
-                      : _addActivity,
+                  onPressed: _isCompleting ? null : _addActivity,
                   icon: const Icon(Icons.add),
-                  label: const Text(
-                    'Add Activity',
-                  ),
+                  label: const Text('Add Activity'),
                 ),
 
                 const SizedBox(height: 24),
@@ -381,50 +311,34 @@ class _SportsSetupContentState
                   const _EmptySportsState(),
                   const SizedBox(height: 32),
                   OutlinedButton(
-                    onPressed: _isCompleting
-                        ? null
-                        : _confirmNoSports,
+                    onPressed: _isCompleting ? null : _confirmNoSports,
                     child: const Padding(
-                      padding: EdgeInsets.symmetric(
-                        vertical: 14,
-                      ),
-                      child: Text(
-                        "I don't do other sports",
-                      ),
+                      padding: EdgeInsets.symmetric(vertical: 14),
+                      child: Text("I don't do other sports"),
                     ),
                   ),
                 ] else ...[
                   Text(
                     'Your activities',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                    style: Theme.of(context).textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 16),
 
                   for (final activity in activities)
                     Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: 12,
-                      ),
+                      padding: const EdgeInsets.only(bottom: 12),
                       child: _SportActivityCard(
                         activity: activity,
                         onEdit: _isCompleting
                             ? null
                             : () {
-                                _editActivity(
-                                  activity,
-                                );
+                                _editActivity(activity);
                               },
                         onDelete: _isCompleting
                             ? null
                             : () {
-                                _deleteActivity(
-                                  activity,
-                                );
+                                _deleteActivity(activity);
                               },
                       ),
                     ),
@@ -432,24 +346,17 @@ class _SportsSetupContentState
                   const SizedBox(height: 20),
 
                   FilledButton(
-                    onPressed: _isCompleting
-                        ? null
-                        : _completeSetup,
+                    onPressed: _isCompleting ? null : _completeSetup,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 14,
-                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       child: _isCompleting
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child:
-                                  CircularProgressIndicator(
-                                strokeWidth: 2,
-                              ),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text(
-                              'Continue',
+                          : Text(
+                              widget.settingsMode ? 'Save Changes' : 'Continue',
                             ),
                     ),
                   ),
@@ -476,19 +383,13 @@ class _EmptySportsState extends StatelessWidget {
             Icon(
               Icons.sports,
               size: 48,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurfaceVariant,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             const SizedBox(height: 12),
             Text(
               'No sports added yet',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 6),
             const Text(
@@ -522,34 +423,21 @@ class _SportActivityCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const CircleAvatar(
-              child: Icon(
-                Icons.sports_mma,
-              ),
-            ),
+            const CircleAvatar(child: Icon(Icons.sports_mma)),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    weekdayLabel(
-                      activity.dayOfWeek,
-                    ),
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelLarge,
+                    weekdayLabel(activity.dayOfWeek),
+                    style: Theme.of(context).textTheme.labelLarge,
                   ),
                   const SizedBox(height: 2),
                   Text(
                     activity.displayName,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -570,14 +458,8 @@ class _SportActivityCard extends StatelessWidget {
               },
               itemBuilder: (context) {
                 return const [
-                  PopupMenuItem(
-                    value: 'edit',
-                    child: Text('Edit'),
-                  ),
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: Text('Delete'),
-                  ),
+                  PopupMenuItem(value: 'edit', child: Text('Edit')),
+                  PopupMenuItem(value: 'delete', child: Text('Delete')),
                 ];
               },
             ),
@@ -589,19 +471,15 @@ class _SportActivityCard extends StatelessWidget {
 }
 
 class _SportActivityDialog extends StatefulWidget {
-  const _SportActivityDialog({
-    this.activity,
-  });
+  const _SportActivityDialog({this.activity});
 
   final SportActivityData? activity;
 
   @override
-  State<_SportActivityDialog> createState() =>
-      _SportActivityDialogState();
+  State<_SportActivityDialog> createState() => _SportActivityDialogState();
 }
 
-class _SportActivityDialogState
-    extends State<_SportActivityDialog> {
+class _SportActivityDialogState extends State<_SportActivityDialog> {
   final _formKey = GlobalKey<FormState>();
 
   late final TextEditingController _sportController;
@@ -618,9 +496,7 @@ class _SportActivityDialogState
 
     final activity = widget.activity;
 
-    _sportController = TextEditingController(
-      text: activity?.displayName ?? '',
-    );
+    _sportController = TextEditingController(text: activity?.displayName ?? '');
 
     _durationController = TextEditingController(
       text: activity?.durationMinutes.toString() ?? '60',
@@ -628,8 +504,7 @@ class _SportActivityDialogState
 
     _dayOfWeek = activity?.dayOfWeek ?? 1;
 
-    _intensity =
-        activity?.intensity ?? SportIntensity.moderate;
+    _intensity = activity?.intensity ?? SportIntensity.moderate;
   }
 
   @override
@@ -645,14 +520,11 @@ class _SportActivityDialogState
       return;
     }
 
-    final duration = int.parse(
-      _durationController.text.trim(),
-    );
+    final duration = int.parse(_durationController.text.trim());
 
     Navigator.of(context).pop(
       _SportFormResult(
-        sportType:
-            _sportController.text.trim(),
+        sportType: _sportController.text.trim(),
         dayOfWeek: _dayOfWeek,
         durationMinutes: duration,
         intensity: _intensity,
@@ -663,11 +535,7 @@ class _SportActivityDialogState
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(
-        _isEditing
-            ? 'Edit Activity'
-            : 'Add Activity',
-      ),
+      title: Text(_isEditing ? 'Edit Activity' : 'Add Activity'),
       content: SizedBox(
         width: 420,
         child: Form(
@@ -678,8 +546,7 @@ class _SportActivityDialogState
               children: [
                 TextFormField(
                   controller: _sportController,
-                  textCapitalization:
-                      TextCapitalization.words,
+                  textCapitalization: TextCapitalization.words,
                   decoration: const InputDecoration(
                     labelText: 'Sport',
                     hintText: 'e.g. Boxing',
@@ -702,9 +569,7 @@ class _SportActivityDialogState
 
                 DropdownButtonFormField<int>(
                   initialValue: _dayOfWeek,
-                  decoration: const InputDecoration(
-                    labelText: 'Day',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Day'),
                   items: [
                     for (final day in weekdays)
                       DropdownMenuItem(
@@ -731,16 +596,13 @@ class _SportActivityDialogState
                     suffixText: 'minutes',
                   ),
                   validator: (value) {
-                    final duration = int.tryParse(
-                      value?.trim() ?? '',
-                    );
+                    final duration = int.tryParse(value?.trim() ?? '');
 
                     if (duration == null) {
                       return 'Enter a valid duration.';
                     }
 
-                    if (duration < 10 ||
-                        duration > 300) {
+                    if (duration < 10 || duration > 300) {
                       return 'Duration must be 10–300 minutes.';
                     }
 
@@ -750,20 +612,14 @@ class _SportActivityDialogState
 
                 const SizedBox(height: 16),
 
-                DropdownButtonFormField<
-                    SportIntensity>(
+                DropdownButtonFormField<SportIntensity>(
                   initialValue: _intensity,
-                  decoration: const InputDecoration(
-                    labelText: 'Intensity',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Intensity'),
                   items: [
-                    for (final intensity
-                        in SportIntensity.values)
+                    for (final intensity in SportIntensity.values)
                       DropdownMenuItem(
                         value: intensity,
-                        child: Text(
-                          intensity.label,
-                        ),
+                        child: Text(intensity.label),
                       ),
                   ],
                   onChanged: (value) {
@@ -788,9 +644,7 @@ class _SportActivityDialogState
         ),
         FilledButton(
           onPressed: _submit,
-          child: Text(
-            _isEditing ? 'Save' : 'Add',
-          ),
+          child: Text(_isEditing ? 'Save' : 'Add'),
         ),
       ],
     );
