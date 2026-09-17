@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/weekdays.dart';
 import '../../auth/data/auth_user.dart';
-import '../../auth/presentation/auth_session_controller.dart';
 import '../../program/data/program_models.dart';
 import '../../program/data/program_repository.dart';
 import '../../program/presentation/program_controller.dart';
@@ -12,7 +11,6 @@ import '../../workout/data/workout_models.dart';
 import '../../workout/data/workout_repository.dart';
 import '../../workout/presentation/workout_controller.dart';
 import '../../workout/presentation/workout_session_screen.dart';
-import '../../workout/presentation/workout_history_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({required this.user, super.key});
@@ -167,31 +165,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         title: const Text('FORGE'),
         actions: [
           IconButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (context) {
-                    return const WorkoutHistoryScreen();
-                  },
-                ),
-              );
-            },
-            tooltip: 'Workout History',
-            icon: const Icon(Icons.history),
-          ),
-          IconButton(
-            onPressed: () {
-              ref.read(programControllerProvider.notifier).refresh();
+            onPressed: () async {
+              await Future.wait([
+                ref.read(programControllerProvider.notifier).refresh(),
+                ref.read(workoutControllerProvider.notifier).refresh(),
+              ]);
             },
             tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
-          ),
-          IconButton(
-            onPressed: () {
-              ref.read(authSessionControllerProvider.notifier).logout();
-            },
-            tooltip: 'Logout',
-            icon: const Icon(Icons.logout),
           ),
         ],
       ),
@@ -302,6 +283,11 @@ class _HomeContent extends StatelessWidget {
                     isStartingWorkout: isStartingWorkout,
                     onStartWorkout: onStartWorkout,
                     onResumeWorkout: onResumeWorkout,
+                  ),
+                  const SizedBox(height: 16),
+                  _WeeklyProgressCard(
+                    program: program,
+                    workoutState: workoutState,
                   ),
                   const SizedBox(height: 16),
                   _ActiveProgramCard(
@@ -535,6 +521,90 @@ class _TodayTrainingCard extends StatelessWidget {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WeeklyProgressCard extends StatelessWidget {
+  const _WeeklyProgressCard({
+    required this.program,
+    required this.workoutState,
+  });
+
+  final ProgramDetailData program;
+  final WorkoutState workoutState;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final weekStart = today.subtract(Duration(days: now.weekday - 1));
+    final weekEnd = weekStart.add(const Duration(days: 7));
+
+    final scheduledDays = program.days.map((day) => day.dayOfWeek).toSet();
+    final completedDays = <int>{};
+
+    for (final workout in workoutState.history) {
+      final completedAt = workout.completedAt;
+
+      if (workout.status != 'completed' ||
+          completedAt == null ||
+          workout.programVersionNumber != program.versionNumber) {
+        continue;
+      }
+
+      final local = completedAt.toLocal();
+
+      if (!local.isBefore(weekStart) &&
+          local.isBefore(weekEnd) &&
+          scheduledDays.contains(workout.dayOfWeek)) {
+        completedDays.add(workout.dayOfWeek);
+      }
+    }
+
+    final completedCount = completedDays.length;
+    final totalDays = scheduledDays.length;
+    final progress = totalDays == 0 ? 0.0 : completedCount / totalDays;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.bar_chart),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Weekly Progress',
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Text(
+                  '$completedCount / $totalDays',
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              borderRadius: BorderRadius.circular(99),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              completedCount == totalDays && totalDays > 0
+                  ? 'Weekly training complete.'
+                  : '$completedCount of $totalDays scheduled workouts completed.',
+            ),
           ],
         ),
       ),
