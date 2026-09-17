@@ -8,6 +8,9 @@ import '../../muscles/presentation/muscle_priority_screen.dart';
 import '../../sports/presentation/sports_setup_screen.dart';
 import 'experience_level_screen.dart';
 import 'profile_controller.dart';
+import '../../onboarding/presentation/goal_selection_screen.dart';
+import '../../onboarding/presentation/onboarding_controller.dart';
+import '../../onboarding/presentation/training_preferences_screen.dart';
 
 class TrainingSetupScreen extends StatelessWidget {
   const TrainingSetupScreen({super.key});
@@ -37,21 +40,39 @@ class TrainingSetupScreen extends StatelessWidget {
             margin: EdgeInsets.zero,
             child: Column(
               children: [
-                const _SetupTile(
-                  icon: Icons.flag_outlined,
-                  title: 'Goals',
-                  subtitle: 'Primary and secondary training goals',
-                  enabled: false,
-                ),
+                _SetupTile(
+  icon: Icons.flag_outlined,
+  title: 'Goals',
+  subtitle:
+      'Primary and secondary training goals',
+  onTap: () {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) {
+          return const _GoalSettingsPage();
+        },
+      ),
+    );
+  },
+),
 
                 const Divider(height: 1),
 
-                const _SetupTile(
-                  icon: Icons.calendar_month_outlined,
-                  title: 'Training Schedule',
-                  subtitle: 'Training days and session preferences',
-                  enabled: false,
-                ),
+           _SetupTile(
+  icon: Icons.calendar_month_outlined,
+  title: 'Training Schedule',
+  subtitle:
+      'Training days and session preferences',
+  onTap: () {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) {
+          return const _TrainingScheduleSettingsPage();
+        },
+      ),
+    );
+  },
+),
 
                 const Divider(height: 1),
 
@@ -159,6 +180,92 @@ class TrainingSetupScreen extends StatelessWidget {
   }
 }
 
+class _GoalSettingsPage extends ConsumerWidget {
+  const _GoalSettingsPage();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final onboarding = ref.watch(onboardingControllerProvider);
+
+    return onboarding.when(
+      loading: () {
+        return const _SettingsLoadingScreen(
+          title: 'Training Goals',
+        );
+      },
+      error: (error, stackTrace) {
+        return _SettingsErrorScreen(
+          title: 'Training Goals',
+          onRetry: () {
+            ref
+                .read(
+                  onboardingControllerProvider.notifier,
+                )
+                .refresh();
+          },
+        );
+      },
+      data: (data) {
+        final goal = data.goal;
+
+        if (goal == null) {
+          return const _MissingSettingsScreen(
+            title: 'Training Goals',
+          );
+        }
+
+        return GoalSelectionScreen(
+          initialGoal: goal,
+          settingsMode: true,
+        );
+      },
+    );
+  }
+}
+
+class _TrainingScheduleSettingsPage extends ConsumerWidget {
+  const _TrainingScheduleSettingsPage();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final onboarding = ref.watch(onboardingControllerProvider);
+
+    return onboarding.when(
+      loading: () {
+        return const _SettingsLoadingScreen(
+          title: 'Training Schedule',
+        );
+      },
+      error: (error, stackTrace) {
+        return _SettingsErrorScreen(
+          title: 'Training Schedule',
+          onRetry: () {
+            ref
+                .read(
+                  onboardingControllerProvider.notifier,
+                )
+                .refresh();
+          },
+        );
+      },
+      data: (data) {
+        final preferences = data.trainingPreferences;
+
+        if (preferences == null) {
+          return const _MissingSettingsScreen(
+            title: 'Training Schedule',
+          );
+        }
+
+        return TrainingPreferencesScreen(
+          initialPreferences: preferences,
+          settingsMode: true,
+        );
+      },
+    );
+  }
+}
+
 class _ExperienceSettingsPage extends ConsumerWidget {
   const _ExperienceSettingsPage();
 
@@ -237,6 +344,30 @@ class _EquipmentSettingsPage extends ConsumerWidget {
   }
 }
 
+class _MissingSettingsScreen extends StatelessWidget {
+  const _MissingSettingsScreen({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+      ),
+      body: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'These training settings are not available.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SettingsLoadingScreen extends StatelessWidget {
   const _SettingsLoadingScreen({required this.title});
 
@@ -303,26 +434,24 @@ class _SetupTile extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
-    this.enabled = true,
     this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
-
-  final bool enabled;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      enabled: enabled,
       leading: Icon(icon),
       title: Text(title),
-      subtitle: Text(enabled ? subtitle : '$subtitle • Coming next'),
-      trailing: Icon(enabled ? Icons.chevron_right : Icons.lock_outline),
-      onTap: enabled ? onTap : null,
+      subtitle: Text(subtitle),
+      trailing: const Icon(
+        Icons.chevron_right,
+      ),
+      onTap: onTap,
     );
   }
 }

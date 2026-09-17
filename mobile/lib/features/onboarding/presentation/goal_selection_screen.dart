@@ -6,7 +6,14 @@ import '../data/onboarding_repository.dart';
 import 'onboarding_controller.dart';
 
 class GoalSelectionScreen extends ConsumerStatefulWidget {
-  const GoalSelectionScreen({super.key});
+  const GoalSelectionScreen({
+    this.initialGoal,
+    this.settingsMode = false,
+    super.key,
+  });
+
+  final GoalData? initialGoal;
+  final bool settingsMode;
 
   @override
   ConsumerState<GoalSelectionScreen> createState() =>
@@ -19,6 +26,20 @@ class _GoalSelectionScreenState extends ConsumerState<GoalSelectionScreen> {
   final Set<TrainingGoal> _secondaryGoals = {};
 
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final initialGoal = widget.initialGoal;
+
+    if (initialGoal != null) {
+      _primaryGoal = initialGoal.primaryGoal;
+      _secondaryGoals.addAll(
+        initialGoal.secondaryGoals,
+      );
+    }
+  }
 
   void _selectPrimaryGoal(TrainingGoal goal) {
     if (_isSubmitting) {
@@ -76,6 +97,9 @@ class _GoalSelectionScreenState extends ConsumerState<GoalSelectionScreen> {
       await ref
           .read(onboardingControllerProvider.notifier)
           .setGoal(primaryGoal: primaryGoal, secondaryGoals: secondaryGoals);
+      if (widget.settingsMode && mounted) {
+        Navigator.of(context).pop(true);
+      }
     } on OnboardingException catch (error) {
       if (!mounted) {
         return;
@@ -107,6 +131,13 @@ class _GoalSelectionScreenState extends ConsumerState<GoalSelectionScreen> {
     final primaryGoal = _primaryGoal;
 
     return Scaffold(
+      appBar: widget.settingsMode
+          ? AppBar(
+              title: const Text(
+                'Training Goals',
+              ),
+            )
+          : null,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -187,7 +218,11 @@ class _GoalSelectionScreenState extends ConsumerState<GoalSelectionScreen> {
                               height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Continue'),
+                          : Text(
+                              widget.settingsMode
+                                  ? 'Save Changes'
+                                  : 'Continue',
+                            ),
                     ),
                   ),
                 ],

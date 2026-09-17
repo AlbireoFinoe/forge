@@ -4,13 +4,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/weekdays.dart';
 import '../data/onboarding_repository.dart';
 import 'onboarding_controller.dart';
+import '../data/onboarding_models.dart';
 
-class TrainingPreferencesScreen extends ConsumerStatefulWidget {
-  const TrainingPreferencesScreen({super.key});
+class TrainingPreferencesScreen
+    extends ConsumerStatefulWidget {
+  const TrainingPreferencesScreen({
+    this.initialPreferences,
+    this.settingsMode = false,
+    super.key,
+  });
+
+  final TrainingPreferencesData?
+      initialPreferences;
+
+  final bool settingsMode;
 
   @override
-  ConsumerState<TrainingPreferencesScreen> createState() =>
-      _TrainingPreferencesScreenState();
+  ConsumerState<TrainingPreferencesScreen>
+      createState() =>
+          _TrainingPreferencesScreenState();
 }
 
 class _TrainingPreferencesScreenState
@@ -22,6 +34,29 @@ class _TrainingPreferencesScreenState
   bool _noDedicatedLegDay = false;
   bool _armSpecialization = false;
   bool _isSubmitting = false;
+
+  @override
+void initState() {
+  super.initState();
+
+  final preferences =
+      widget.initialPreferences;
+
+  if (preferences != null) {
+    _selectedDays.addAll(
+      preferences.availableDays,
+    );
+
+    _sessionDurationMinutes =
+        preferences.sessionDurationMinutes;
+
+    _noDedicatedLegDay =
+        preferences.noDedicatedLegDay;
+
+    _armSpecialization =
+        preferences.armSpecialization;
+  }
+}
 
   Future<void> _continue() async {
     if (_selectedDays.isEmpty || _isSubmitting) {
@@ -44,6 +79,10 @@ class _TrainingPreferencesScreenState
             noDedicatedLegDay: _noDedicatedLegDay,
             armSpecialization: _armSpecialization,
           );
+
+      if (widget.settingsMode && mounted) {
+        Navigator.of(context).pop(true);
+      }
     } on OnboardingException catch (error) {
       if (!mounted) {
         return;
@@ -77,6 +116,13 @@ class _TrainingPreferencesScreenState
     final selectedCount = _selectedDays.length;
 
     return Scaffold(
+      appBar: widget.settingsMode
+          ? AppBar(
+              title: const Text(
+                'Training Schedule',
+              ),
+            )
+          : null,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -204,7 +250,11 @@ class _TrainingPreferencesScreenState
                               height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Continue'),
+                          : Text(
+                              widget.settingsMode
+                                  ? 'Save Changes'
+                                  : 'Continue',
+                            ),
                     ),
                   ),
                 ],
