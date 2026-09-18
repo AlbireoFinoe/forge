@@ -6,7 +6,9 @@ import 'auth_session_controller.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({this.notice, super.key});
+
+  final String? notice;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -93,7 +95,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       'Adaptive Training Planner',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    const SizedBox(height: 40),
+                    if (widget.notice != null) ...[
+                      const SizedBox(height: 24),
+                      Card(
+                        color: Theme.of(context).colorScheme.errorContainer,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.info_outline),
+                              const SizedBox(width: 12),
+                              Expanded(child: Text(widget.notice!)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ] else
+                      const SizedBox(height: 40),
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,

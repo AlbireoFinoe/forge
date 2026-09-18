@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/auth/session_expiry_notifier.dart';
 import '../data/auth_repository.dart';
 import '../data/auth_user.dart';
 import '../../onboarding/presentation/onboarding_controller.dart';
@@ -14,25 +17,35 @@ import '../../workout/presentation/workout_controller.dart';
 enum AuthSessionStatus { authenticated, unauthenticated }
 
 class AuthSessionState {
-  const AuthSessionState._({required this.status, this.user});
+  const AuthSessionState._({required this.status, this.user, this.notice});
 
   const AuthSessionState.authenticated(AuthUser user)
     : this._(status: AuthSessionStatus.authenticated, user: user);
 
-  const AuthSessionState.unauthenticated()
-    : this._(status: AuthSessionStatus.unauthenticated);
+  const AuthSessionState.unauthenticated({String? notice})
+    : this._(status: AuthSessionStatus.unauthenticated, notice: notice);
 
   final AuthSessionStatus status;
   final AuthUser? user;
+  final String? notice;
 
   bool get isAuthenticated => status == AuthSessionStatus.authenticated;
 }
 
 class AuthSessionController extends AsyncNotifier<AuthSessionState> {
+  static const String _sessionExpiredMessage =
+      'Your session has expired. Please sign in again.';
+
   AuthRepository get _authRepository => ref.read(authRepositoryProvider);
 
   @override
   Future<AuthSessionState> build() async {
+    ref.listen<int>(sessionExpiryProvider, (previous, next) {
+      if (previous != null && previous != next) {
+        _handleSessionExpired();
+      }
+    });
+
     final hasToken = await _authRepository.hasStoredToken();
 
     if (!hasToken) {
@@ -47,7 +60,9 @@ class AuthSessionController extends AsyncNotifier<AuthSessionState> {
       if (error.isUnauthorized) {
         await _authRepository.logout();
 
-        return const AuthSessionState.unauthenticated();
+        return const AuthSessionState.unauthenticated(
+          notice: _sessionExpiredMessage,
+        );
       }
 
       rethrow;
@@ -57,13 +72,7 @@ class AuthSessionController extends AsyncNotifier<AuthSessionState> {
   Future<void> login({required String email, required String password}) async {
     final user = await _authRepository.login(email: email, password: password);
 
-    ref.invalidate(onboardingControllerProvider);
-    ref.invalidate(musclePriorityControllerProvider);
-    ref.invalidate(equipmentControllerProvider);
-    ref.invalidate(sportControllerProvider);
-    ref.invalidate(profileControllerProvider);
-    ref.invalidate(programControllerProvider);
-    ref.invalidate(workoutControllerProvider);
+    _invalidateUserState();
 
     state = AsyncData(AuthSessionState.authenticated(user));
   }
@@ -76,13 +85,7 @@ class AuthSessionController extends AsyncNotifier<AuthSessionState> {
 
     final user = await _authRepository.login(email: email, password: password);
 
-    ref.invalidate(onboardingControllerProvider);
-    ref.invalidate(musclePriorityControllerProvider);
-    ref.invalidate(equipmentControllerProvider);
-    ref.invalidate(sportControllerProvider);
-    ref.invalidate(profileControllerProvider);
-    ref.invalidate(programControllerProvider);
-    ref.invalidate(workoutControllerProvider);
+    _invalidateUserState();
 
     state = AsyncData(AuthSessionState.authenticated(user));
   }
@@ -92,13 +95,7 @@ class AuthSessionController extends AsyncNotifier<AuthSessionState> {
 
     await _authRepository.logout();
 
-    ref.invalidate(onboardingControllerProvider);
-    ref.invalidate(musclePriorityControllerProvider);
-    ref.invalidate(equipmentControllerProvider);
-    ref.invalidate(sportControllerProvider);
-    ref.invalidate(profileControllerProvider);
-    ref.invalidate(programControllerProvider);
-    ref.invalidate(workoutControllerProvider);
+    _invalidateUserState();
 
     state = const AsyncData(AuthSessionState.unauthenticated());
   }
@@ -106,11 +103,51 @@ class AuthSessionController extends AsyncNotifier<AuthSessionState> {
   Future<void> refreshSession() async {
     state = const AsyncLoading();
 
-    state = await AsyncValue.guard(() async {
+    try {
       final user = await _authRepository.getCurrentUser();
 
-      return AuthSessionState.authenticated(user);
-    });
+      state = AsyncData(AuthSessionState.authenticated(user));
+    } on AuthException catch (error, stackTrace) {
+      if (error.isUnauthorized) {
+        await _authRepository.logout();
+
+        _invalidateUserState();
+
+        state = const AsyncData(
+          AuthSessionState.unauthenticated(notice: _sessionExpiredMessage),
+        );
+
+        return;
+      }
+
+      state = AsyncError(error, stackTrace);
+    }
+  }
+
+  void _handleSessionExpired() {
+    final current = state.value;
+
+    if (current == null || !current.isAuthenticated) {
+      return;
+    }
+
+    _invalidateUserState();
+
+    state = const AsyncData(
+      AuthSessionState.unauthenticated(notice: _sessionExpiredMessage),
+    );
+
+    unawaited(_authRepository.logout());
+  }
+
+  void _invalidateUserState() {
+    ref.invalidate(onboardingControllerProvider);
+    ref.invalidate(musclePriorityControllerProvider);
+    ref.invalidate(equipmentControllerProvider);
+    ref.invalidate(sportControllerProvider);
+    ref.invalidate(profileControllerProvider);
+    ref.invalidate(programControllerProvider);
+    ref.invalidate(workoutControllerProvider);
   }
 }
 

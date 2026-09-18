@@ -49,7 +49,7 @@ class AuthGate extends ConsumerWidget {
           return OnboardingGate(user: user);
         }
 
-        return const LoginScreen();
+        return LoginScreen(notice: sessionState.notice);
       },
     );
   }
