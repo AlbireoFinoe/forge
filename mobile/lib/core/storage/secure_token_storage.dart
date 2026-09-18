@@ -6,7 +6,18 @@ class SecureTokenStorage {
 
   static const String _accessTokenKey = 'access_token';
 
+  static const String _refreshTokenKey = 'refresh_token';
+
   final FlutterSecureStorage _storage;
+
+  Future<void> saveTokens({
+    required String accessToken,
+    required String refreshToken,
+  }) async {
+    await _storage.write(key: _accessTokenKey, value: accessToken);
+
+    await _storage.write(key: _refreshTokenKey, value: refreshToken);
+  }
 
   Future<void> saveAccessToken(String token) async {
     await _storage.write(key: _accessTokenKey, value: token);
@@ -16,13 +27,24 @@ class SecureTokenStorage {
     return _storage.read(key: _accessTokenKey);
   }
 
-  Future<void> deleteAccessToken() async {
-    await _storage.delete(key: _accessTokenKey);
+  Future<String?> readRefreshToken() {
+    return _storage.read(key: _refreshTokenKey);
   }
 
-  Future<bool> hasAccessToken() async {
-    final token = await readAccessToken();
+  Future<void> deleteTokens() async {
+    await _storage.delete(key: _accessTokenKey);
 
-    return token != null && token.trim().isNotEmpty;
+    await _storage.delete(key: _refreshTokenKey);
+  }
+
+  Future<bool> hasSessionTokens() async {
+    final accessToken = await readAccessToken();
+
+    final refreshToken = await readRefreshToken();
+
+    return accessToken != null &&
+        accessToken.trim().isNotEmpty &&
+        refreshToken != null &&
+        refreshToken.trim().isNotEmpty;
   }
 }

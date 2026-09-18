@@ -5,8 +5,10 @@ from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.database import get_db
+from app.core.security import (
+    decode_access_token_subject,
+)
 from app.models.user import User
 
 
@@ -35,20 +37,15 @@ def get_current_user(
     token = credentials.credentials
 
     try:
-        payload = jwt.decode(
-            token,
-            settings.jwt_secret_key,
-            algorithms=[
-                settings.jwt_algorithm
-            ],
+        subject = (
+            decode_access_token_subject(
+                token
+            )
         )
 
-        subject = payload.get("sub")
-
-        if subject is None:
-            raise authentication_error
-
-        user_id = uuid.UUID(subject)
+        user_id = uuid.UUID(
+            subject
+        )
 
     except (
         jwt.InvalidTokenError,

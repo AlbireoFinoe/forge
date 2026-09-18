@@ -54,21 +54,29 @@ class AuthRepository {
 
       final data = _asJsonObject(response.data);
 
-      final token = data['access_token'];
+      final accessToken = data['access_token'];
 
-      if (token is! String || token.trim().isEmpty) {
+      final refreshToken = data['refresh_token'];
+
+      if (accessToken is! String ||
+          accessToken.trim().isEmpty ||
+          refreshToken is! String ||
+          refreshToken.trim().isEmpty) {
         throw const AuthException(
-          'Login response did not contain an access token.',
+          'Login response did not contain valid session tokens.',
         );
       }
 
-      await _tokenStorage.saveAccessToken(token);
+      await _tokenStorage.saveTokens(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+      );
 
       try {
         return await getCurrentUser();
       } on AuthException catch (error) {
         if (error.isUnauthorized) {
-          await _tokenStorage.deleteAccessToken();
+          await _tokenStorage.deleteTokens();
         }
 
         rethrow;
@@ -89,11 +97,11 @@ class AuthRepository {
   }
 
   Future<bool> hasStoredToken() {
-    return _tokenStorage.hasAccessToken();
+    return _tokenStorage.hasSessionTokens();
   }
 
   Future<void> logout() {
-    return _tokenStorage.deleteAccessToken();
+    return _tokenStorage.deleteTokens();
   }
 
   Map<String, dynamic> _asJsonObject(dynamic value) {
