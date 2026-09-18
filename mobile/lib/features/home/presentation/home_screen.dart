@@ -276,6 +276,13 @@ class _HomeContent extends StatelessWidget {
                     onGenerate: onGenerate,
                   )
                 else ...[
+                  if (program.isOutdated) ...[
+                    _ProgramOutdatedCard(
+                      isGenerating: isGenerating,
+                      onRegenerate: onRegenerate,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   _TodayTrainingCard(
                     program: program,
                     currentWorkout: workoutState.currentWorkout,
@@ -308,26 +315,100 @@ class _HomeContent extends StatelessWidget {
                     _GenerationWarningCard(generation: state.lastGeneration!),
                   ],
 
-                  const SizedBox(height: 24),
-
-                  OutlinedButton.icon(
-                    onPressed: isGenerating ? null : onRegenerate,
-                    icon: const Icon(Icons.auto_awesome),
-                    label: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      child: isGenerating
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Generate New Program'),
+                  if (!program.isOutdated) ...[
+                    const SizedBox(height: 24),
+                    OutlinedButton.icon(
+                      onPressed: isGenerating ? null : onRegenerate,
+                      icon: const Icon(Icons.auto_awesome),
+                      label: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: isGenerating
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text('Generate New Program'),
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProgramOutdatedCard extends StatelessWidget {
+  const _ProgramOutdatedCard({
+    required this.isGenerating,
+    required this.onRegenerate,
+  });
+
+  final bool isGenerating;
+  final VoidCallback onRegenerate;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.update, color: colorScheme.primary, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Training setup changed',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Your active program was created '
+                        'from an older training setup. '
+                        'Regenerate it to apply your latest '
+                        'goals, schedule, experience, muscle '
+                        'priorities, equipment, and sports.',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: isGenerating ? null : onRegenerate,
+                icon: const Icon(Icons.auto_awesome),
+                label: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: isGenerating
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Regenerate Program'),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
