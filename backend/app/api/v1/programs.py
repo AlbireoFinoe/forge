@@ -45,6 +45,7 @@ router = APIRouter(
 def _build_program_detail_response(
     db: Session,
     program,
+    current_setup_revision: int,
 ) -> ProgramDetailResponse:
 
     day_rows = get_program_days(
@@ -143,6 +144,16 @@ def _build_program_detail_response(
         generator_version=(
             program.generator_version
         ),
+        setup_revision=(
+            program.setup_revision
+        ),
+        current_setup_revision=(
+            current_setup_revision
+        ),
+        is_outdated=(
+            program.setup_revision
+            != current_setup_revision
+        ),
         goal=program.goal,
         status=program.status,
         created_at=program.created_at,
@@ -230,6 +241,18 @@ def generate_program(
         generator_version=(
             program.generator_version
         ),
+        setup_revision=(
+            program.setup_revision
+        ),
+        current_setup_revision=(
+            current_user
+            .training_setup_revision
+        ),
+        is_outdated=(
+            program.setup_revision
+            != current_user
+            .training_setup_revision
+        ),
         goal=program.goal,
         status=program.status,
         validation_passed=(
@@ -277,6 +300,7 @@ def get_current_program(
     return _build_program_detail_response(
         db,
         program,
+        current_user.training_setup_revision,
     )
 
 
@@ -308,6 +332,18 @@ def get_program_history(
             ),
             generator_version=(
                 program.generator_version
+            ),
+            setup_revision=(
+                program.setup_revision
+            ),
+            current_setup_revision=(
+                current_user
+                .training_setup_revision
+            ),
+            is_outdated=(
+                program.setup_revision
+                != current_user
+                .training_setup_revision
             ),
             goal=program.goal,
             status=program.status,
@@ -350,4 +386,5 @@ def get_program_by_id(
     return _build_program_detail_response(
         db,
         program,
+        current_user.training_setup_revision,
     )

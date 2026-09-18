@@ -18,6 +18,9 @@ class ProgramGenerateData {
     required this.name,
     required this.versionNumber,
     required this.generatorVersion,
+    required this.setupRevision,
+    required this.currentSetupRevision,
+    required this.isOutdated,
     required this.goal,
     required this.status,
     required this.validationPassed,
@@ -31,6 +34,9 @@ class ProgramGenerateData {
   final String name;
   final int versionNumber;
   final String generatorVersion;
+  final int setupRevision;
+  final int currentSetupRevision;
+  final bool isOutdated;
   final String goal;
   final String status;
   final bool validationPassed;
@@ -45,6 +51,9 @@ class ProgramGenerateData {
       name: json['name'] as String,
       versionNumber: json['version_number'] as int,
       generatorVersion: json['generator_version'] as String,
+      setupRevision: json['setup_revision'] as int,
+      currentSetupRevision: json['current_setup_revision'] as int,
+      isOutdated: json['is_outdated'] as bool,
       goal: json['goal'] as String,
       status: json['status'] as String,
       validationPassed: json['validation_passed'] as bool,
@@ -144,6 +153,9 @@ class ProgramDetailData {
     required this.name,
     required this.versionNumber,
     required this.generatorVersion,
+    required this.setupRevision,
+    required this.currentSetupRevision,
+    required this.isOutdated,
     required this.goal,
     required this.status,
     required this.createdAt,
@@ -154,6 +166,9 @@ class ProgramDetailData {
   final String name;
   final int versionNumber;
   final String generatorVersion;
+  final int setupRevision;
+  final int currentSetupRevision;
+  final bool isOutdated;
   final String goal;
   final String status;
   final DateTime createdAt;
@@ -169,6 +184,9 @@ class ProgramDetailData {
       name: json['name'] as String,
       versionNumber: json['version_number'] as int,
       generatorVersion: json['generator_version'] as String,
+      setupRevision: json['setup_revision'] as int,
+      currentSetupRevision: json['current_setup_revision'] as int,
+      isOutdated: json['is_outdated'] as bool,
       goal: json['goal'] as String,
       status: json['status'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -188,6 +206,9 @@ class ProgramSummaryData {
     required this.name,
     required this.versionNumber,
     required this.generatorVersion,
+    required this.setupRevision,
+    required this.currentSetupRevision,
+    required this.isOutdated,
     required this.goal,
     required this.status,
     required this.createdAt,
@@ -197,6 +218,9 @@ class ProgramSummaryData {
   final String name;
   final int versionNumber;
   final String generatorVersion;
+  final int setupRevision;
+  final int currentSetupRevision;
+  final bool isOutdated;
   final String goal;
   final String status;
   final DateTime createdAt;
@@ -207,6 +231,9 @@ class ProgramSummaryData {
       name: json['name'] as String,
       versionNumber: json['version_number'] as int,
       generatorVersion: json['generator_version'] as String,
+      setupRevision: json['setup_revision'] as int,
+      currentSetupRevision: json['current_setup_revision'] as int,
+      isOutdated: json['is_outdated'] as bool,
       goal: json['goal'] as String,
       status: json['status'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),

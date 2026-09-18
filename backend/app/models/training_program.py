@@ -30,6 +30,10 @@ class TrainingProgram(Base):
             name="ck_training_program_version",
         ),
         CheckConstraint(
+            "setup_revision >= 1",
+            name="ck_training_program_setup_revision",
+        ),
+        CheckConstraint(
             "status IN ('draft', 'active', 'archived')",
             name="ck_training_program_status",
         ),
@@ -67,6 +71,13 @@ class TrainingProgram(Base):
 
     version_number: Mapped[int] = mapped_column(
         Integer,
+        nullable=False,
+    )
+
+    setup_revision: Mapped[int] = mapped_column(
+        Integer,
+        default=1,
+        server_default="1",
         nullable=False,
     )
 

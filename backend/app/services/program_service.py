@@ -105,6 +105,9 @@ def _create_training_program(
         version_number=(
             version_number
         ),
+        setup_revision=(
+            user.training_setup_revision
+        ),
         status="active",
     )
 

@@ -16,6 +16,10 @@ class ProgramGenerateResponse(BaseModel):
     version_number: int
     generator_version: str
 
+    setup_revision: int
+    current_setup_revision: int
+    is_outdated: bool
+
     goal: str
     status: str
 
@@ -72,6 +76,10 @@ class ProgramDetailResponse(BaseModel):
     version_number: int
     generator_version: str
 
+    setup_revision: int
+    current_setup_revision: int
+    is_outdated: bool
+
     goal: str
     status: str
 
@@ -88,6 +96,10 @@ class ProgramSummaryResponse(BaseModel):
 
     version_number: int
     generator_version: str
+
+    setup_revision: int
+    current_setup_revision: int
+    is_outdated: bool
 
     goal: str
     status: str
