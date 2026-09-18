@@ -111,8 +111,6 @@ class AuthSessionController extends AsyncNotifier<AuthSessionState> {
       if (error.isUnauthorized) {
         await _authRepository.logout();
 
-        _invalidateUserState();
-
         state = const AsyncData(
           AuthSessionState.unauthenticated(notice: _sessionExpiredMessage),
         );
@@ -130,8 +128,6 @@ class AuthSessionController extends AsyncNotifier<AuthSessionState> {
     if (current == null || !current.isAuthenticated) {
       return;
     }
-
-    _invalidateUserState();
 
     state = const AsyncData(
       AuthSessionState.unauthenticated(notice: _sessionExpiredMessage),
