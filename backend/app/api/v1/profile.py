@@ -54,6 +54,7 @@ def patch_profile(
 
     return update_profile(
         db,
+        current_user,
         profile,
         payload,
     )

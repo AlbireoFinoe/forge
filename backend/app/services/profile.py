@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 from app.models.user import User
 from app.models.user_profile import UserProfile
 from app.schemas.profile import ProfileUpdate
+from app.services.training_setup_revision import (
+    bump_training_setup_revision,
+)
 
 
 def get_profile_by_user(
@@ -52,6 +55,7 @@ def get_or_create_profile(
 
 def update_profile(
     db: Session,
+    user: User,
     profile: UserProfile,
     payload: ProfileUpdate,
 ) -> UserProfile:
@@ -59,11 +63,30 @@ def update_profile(
         exclude_unset=True
     )
 
+    has_changes = any(
+        getattr(profile, field) != value
+        for field, value in update_data.items()
+    )
+
+    if not has_changes:
+        return profile
+
+    experience_changed = (
+        "experience_level" in update_data
+        and profile.experience_level
+        != update_data["experience_level"]
+    )
+
     for field, value in update_data.items():
         setattr(
             profile,
             field,
             value,
+        )
+
+    if experience_changed:
+        bump_training_setup_revision(
+            user
         )
 
     db.add(profile)

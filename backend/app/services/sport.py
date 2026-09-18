@@ -10,6 +10,9 @@ from app.schemas.sport import (
     SportActivityCreate,
     SportActivityUpdate,
 )
+from app.services.training_setup_revision import (
+    bump_training_setup_revision,
+)
 
 
 def get_user_sports(
@@ -61,6 +64,11 @@ def create_sport(
     )
 
     db.add(sport)
+
+    bump_training_setup_revision(
+        user
+    )
+
     db.commit()
     db.refresh(sport)
 
@@ -69,6 +77,7 @@ def create_sport(
 
 def update_sport(
     db: Session,
+    user: User,
     sport: SportActivity,
     payload: SportActivityUpdate,
 ) -> SportActivity:
@@ -81,12 +90,24 @@ def update_sport(
             update_data["sport_type"].lower()
         )
 
+    has_changes = any(
+        getattr(sport, field) != value
+        for field, value in update_data.items()
+    )
+
+    if not has_changes:
+        return sport
+
     for field, value in update_data.items():
         setattr(
             sport,
             field,
             value,
         )
+
+    bump_training_setup_revision(
+        user
+    )
 
     db.add(sport)
     db.commit()
@@ -97,9 +118,15 @@ def update_sport(
 
 def delete_sport(
     db: Session,
+    user: User,
     sport: SportActivity,
 ) -> None:
     db.delete(sport)
+
+    bump_training_setup_revision(
+        user
+    )
+
     db.commit()
 
 

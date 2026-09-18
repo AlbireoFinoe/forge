@@ -125,6 +125,7 @@ def patch_sport_activity(
 
     return update_sport(
         db,
+        current_user,
         sport,
         payload,
     )
@@ -155,6 +156,7 @@ def delete_sport_activity(
 
     delete_sport(
         db,
+        current_user,
         sport,
     )
 

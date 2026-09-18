@@ -5,6 +5,9 @@ from app.models.equipment import Equipment
 from app.models.user import User
 from app.models.user_equipment import UserEquipment
 from app.schemas.equipment import UserEquipmentUpdate
+from app.services.training_setup_revision import (
+    bump_training_setup_revision,
+)
 
 
 def get_all_equipment(
@@ -75,6 +78,22 @@ def set_user_equipment(
             "One or more equipment codes are invalid"
         )
 
+    existing_equipment = get_user_equipment(
+        db,
+        user,
+    )
+
+    existing_codes = {
+        equipment.code
+        for equipment
+        in existing_equipment
+    }
+
+    requested_codes = set(codes)
+
+    if existing_codes == requested_codes:
+        return existing_equipment
+
     db.execute(
         delete(UserEquipment).where(
             UserEquipment.user_id == user.id
@@ -90,6 +109,10 @@ def set_user_equipment(
                 equipment_id=equipment.id,
             )
         )
+
+    bump_training_setup_revision(
+        user
+    )
 
     db.commit()
 
