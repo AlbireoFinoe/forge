@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,8 +17,160 @@ class WorkoutSessionScreen extends ConsumerStatefulWidget {
       _WorkoutSessionScreenState();
 }
 
-class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
+class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
+    with WidgetsBindingObserver {
   bool _isFinishing = false;
+
+  Timer? _restTimer;
+  DateTime? _restEndsAt;
+
+  int _restRemainingSeconds = 0;
+  int _restTotalSeconds = 0;
+
+  String? _restExerciseName;
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+
+    _restTimer?.cancel();
+
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncRestTimer();
+    }
+  }
+
+  bool _hasRemainingWorkAfterSet(WorkoutSetData workoutSet) {
+    final session = ref.read(workoutControllerProvider).value?.currentWorkout;
+
+    if (session == null) {
+      return true;
+    }
+
+    for (final exercise in session.exercises) {
+      if (exercise.isSkipped) {
+        continue;
+      }
+
+      for (final candidate in exercise.sets) {
+        if (candidate.id == workoutSet.id) {
+          continue;
+        }
+
+        if (!candidate.isCompleted) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  void _startRestTimer(WorkoutExerciseData exercise) {
+    final seconds = exercise.targetRestSeconds;
+
+    if (seconds <= 0 || !mounted) {
+      return;
+    }
+
+    _restTimer?.cancel();
+
+    final endsAt = DateTime.now().add(Duration(seconds: seconds));
+
+    setState(() {
+      _restEndsAt = endsAt;
+      _restRemainingSeconds = seconds;
+      _restTotalSeconds = seconds;
+      _restExerciseName = exercise.exerciseName;
+    });
+
+    _restTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _syncRestTimer();
+    });
+  }
+
+  void _syncRestTimer() {
+    if (!mounted) {
+      return;
+    }
+
+    final endsAt = _restEndsAt;
+
+    if (endsAt == null) {
+      return;
+    }
+
+    final remainingMilliseconds = endsAt
+        .difference(DateTime.now())
+        .inMilliseconds;
+
+    if (remainingMilliseconds <= 0) {
+      _restTimer?.cancel();
+      _restTimer = null;
+
+      setState(() {
+        _restEndsAt = null;
+        _restRemainingSeconds = 0;
+        _restTotalSeconds = 0;
+        _restExerciseName = null;
+      });
+
+      return;
+    }
+
+    final remainingSeconds = (remainingMilliseconds / 1000).ceil();
+
+    if (remainingSeconds == _restRemainingSeconds) {
+      return;
+    }
+
+    setState(() {
+      _restRemainingSeconds = remainingSeconds;
+    });
+  }
+
+  void _skipRest() {
+    _restTimer?.cancel();
+    _restTimer = null;
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _restEndsAt = null;
+      _restRemainingSeconds = 0;
+      _restTotalSeconds = 0;
+      _restExerciseName = null;
+    });
+  }
+
+  void _addThirtySeconds() {
+    final endsAt = _restEndsAt;
+
+    if (endsAt == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _restEndsAt = endsAt.add(const Duration(seconds: 30));
+
+      _restTotalSeconds += 30;
+      _restRemainingSeconds += 30;
+    });
+  }
 
   Future<void> _logSet(
     WorkoutExerciseData exercise,
@@ -52,6 +206,13 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
       return;
     }
 
+    final wasAlreadyCompleted = workoutSet.isCompleted;
+
+    final shouldStartRest =
+        !wasAlreadyCompleted &&
+        exercise.targetRestSeconds > 0 &&
+        _hasRemainingWorkAfterSet(workoutSet);
+
     try {
       await ref
           .read(workoutControllerProvider.notifier)
@@ -61,6 +222,10 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
             weightKg: result.weightKg,
             rpe: result.rpe,
           );
+
+      if (shouldStartRest && mounted) {
+        _startRestTimer(exercise);
+      }
     } on WorkoutException catch (error) {
       if (!mounted) {
         return;
@@ -252,6 +417,11 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
           return _WorkoutContent(
             workout: session,
             isFinishing: _isFinishing,
+            restExerciseName: _restExerciseName,
+            restRemainingSeconds: _restRemainingSeconds,
+            restTotalSeconds: _restTotalSeconds,
+            onSkipRest: _skipRest,
+            onAddRest: _addThirtySeconds,
             onLogSet: _logSet,
             onSkipExercise: _skipExercise,
             onFinish: () {
@@ -268,6 +438,11 @@ class _WorkoutContent extends StatelessWidget {
   const _WorkoutContent({
     required this.workout,
     required this.isFinishing,
+    required this.restExerciseName,
+    required this.restRemainingSeconds,
+    required this.restTotalSeconds,
+    required this.onSkipRest,
+    required this.onAddRest,
     required this.onLogSet,
     required this.onSkipExercise,
     required this.onFinish,
@@ -275,6 +450,13 @@ class _WorkoutContent extends StatelessWidget {
 
   final WorkoutSessionData workout;
   final bool isFinishing;
+
+  final String? restExerciseName;
+  final int restRemainingSeconds;
+  final int restTotalSeconds;
+
+  final VoidCallback onSkipRest;
+  final VoidCallback onAddRest;
 
   final void Function(WorkoutExerciseData exercise, WorkoutSetData workoutSet)
   onLogSet;
@@ -304,6 +486,17 @@ class _WorkoutContent extends StatelessWidget {
             'Program v${workout.programVersionNumber}',
           ),
           const SizedBox(height: 24),
+
+          if (restRemainingSeconds > 0 && restExerciseName != null) ...[
+            _RestTimerCard(
+              exerciseName: restExerciseName!,
+              remainingSeconds: restRemainingSeconds,
+              totalSeconds: restTotalSeconds,
+              onSkip: onSkipRest,
+              onAddThirtySeconds: onAddRest,
+            ),
+            const SizedBox(height: 24),
+          ],
 
           Card(
             child: Padding(
@@ -377,6 +570,101 @@ class _WorkoutContent extends StatelessWidget {
       ),
     );
   }
+}
+
+class _RestTimerCard extends StatelessWidget {
+  const _RestTimerCard({
+    required this.exerciseName,
+    required this.remainingSeconds,
+    required this.totalSeconds,
+    required this.onSkip,
+    required this.onAddThirtySeconds,
+  });
+
+  final String exerciseName;
+  final int remainingSeconds;
+  final int totalSeconds;
+
+  final VoidCallback onSkip;
+  final VoidCallback onAddThirtySeconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = totalSeconds <= 0
+        ? 0.0
+        : (remainingSeconds / totalSeconds).clamp(0.0, 1.0).toDouble();
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.timer_outlined),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Rest Timer',
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Text(
+                  _formatRestTime(remainingSeconds),
+                  style: Theme.of(context).textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              'After $exerciseName',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+
+            const SizedBox(height: 16),
+
+            LinearProgressIndicator(value: progress),
+
+            const SizedBox(height: 18),
+
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onSkip,
+                    icon: const Icon(Icons.skip_next),
+                    label: const Text('Skip Rest'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: onAddThirtySeconds,
+                    icon: const Icon(Icons.add),
+                    label: const Text('+30 sec'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _formatRestTime(int seconds) {
+  final minutes = seconds ~/ 60;
+
+  final remaining = (seconds % 60).toString().padLeft(2, '0');
+
+  return '${minutes.toString().padLeft(2, '0')}:$remaining';
 }
 
 class _ProgressStat extends StatelessWidget {
