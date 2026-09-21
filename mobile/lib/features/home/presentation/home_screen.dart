@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/weekdays.dart';
+import '../../../core/theme/forge_theme.dart';
 import '../../auth/data/auth_user.dart';
 import '../../program/data/program_models.dart';
 import '../../program/data/program_repository.dart';
@@ -158,24 +159,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final program = ref.watch(programControllerProvider);
+
     final workout = ref.watch(workoutControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('FORGE'),
-        actions: [
-          IconButton(
-            onPressed: () async {
-              await Future.wait([
-                ref.read(programControllerProvider.notifier).refresh(),
-                ref.read(workoutControllerProvider.notifier).refresh(),
-              ]);
-            },
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
       body: program.when(
         loading: () {
           return const Center(child: CircularProgressIndicator());
@@ -208,6 +195,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 workoutState: workoutState,
                 isGenerating: _isGenerating,
                 isStartingWorkout: _isStartingWorkout,
+                onRefresh: () async {
+                  await Future.wait([
+                    ref.read(programControllerProvider.notifier).refresh(),
+                    ref.read(workoutControllerProvider.notifier).refresh(),
+                  ]);
+                },
                 onGenerate: () {
                   _generateProgram(replacingExisting: false);
                 },
@@ -236,106 +229,123 @@ class _HomeContent extends StatelessWidget {
     required this.isStartingWorkout,
     required this.onStartWorkout,
     required this.onResumeWorkout,
+    required this.onRefresh,
   });
 
   final AuthUser user;
   final ProgramState state;
   final WorkoutState workoutState;
+
   final bool isGenerating;
   final bool isStartingWorkout;
+
   final VoidCallback onGenerate;
   final VoidCallback onRegenerate;
+
   final ValueChanged<ProgramDayData> onStartWorkout;
+
   final VoidCallback onResumeWorkout;
+
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final program = state.currentProgram;
 
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Welcome back',
-                  style: Theme.of(context).textTheme.headlineMedium
-                      ?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(user.email, style: Theme.of(context).textTheme.bodyLarge),
-                const SizedBox(height: 32),
+      child: RefreshIndicator(
+        onRefresh: onRefresh,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(
+            ForgeSpacing.lg,
+            ForgeSpacing.lg,
+            ForgeSpacing.lg,
+            ForgeSpacing.xxl,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _HomeHeader(email: user.email, onRefresh: onRefresh),
 
-                if (program == null)
-                  _NoProgramCard(
-                    isGenerating: isGenerating,
-                    onGenerate: onGenerate,
-                  )
-                else ...[
-                  if (program.isOutdated) ...[
-                    _ProgramOutdatedCard(
+                  const SizedBox(height: ForgeSpacing.xxl),
+
+                  if (program == null)
+                    _NoProgramPanel(
                       isGenerating: isGenerating,
-                      onRegenerate: onRegenerate,
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  _TodayTrainingCard(
-                    program: program,
-                    currentWorkout: workoutState.currentWorkout,
-                    completedToday: workoutState.completedToday,
-                    isStartingWorkout: isStartingWorkout,
-                    onStartWorkout: onStartWorkout,
-                    onResumeWorkout: onResumeWorkout,
-                  ),
-                  const SizedBox(height: 16),
-                  _WeeklyProgressCard(
-                    program: program,
-                    workoutState: workoutState,
-                  ),
-                  const SizedBox(height: 16),
-                  _ActiveProgramCard(
-                    program: program,
-                    onViewProgram: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (context) {
-                            return ProgramDetailScreen(program: program);
-                          },
-                        ),
-                      );
-                    },
-                  ),
-
-                  if (state.lastGeneration?.warnings.isNotEmpty ?? false) ...[
-                    const SizedBox(height: 16),
-                    _GenerationWarningCard(generation: state.lastGeneration!),
-                  ],
-
-                  if (!program.isOutdated) ...[
-                    const SizedBox(height: 24),
-                    OutlinedButton.icon(
-                      onPressed: isGenerating ? null : onRegenerate,
-                      icon: const Icon(Icons.auto_awesome),
-                      label: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        child: isGenerating
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Generate New Program'),
+                      onGenerate: onGenerate,
+                    )
+                  else ...[
+                    if (program.isOutdated) ...[
+                      _ProgramOutdatedBanner(
+                        isGenerating: isGenerating,
+                        onRegenerate: onRegenerate,
                       ),
+                      const SizedBox(height: ForgeSpacing.lg),
+                    ],
+
+                    _TodayTrainingPanel(
+                      program: program,
+                      currentWorkout: workoutState.currentWorkout,
+                      completedToday: workoutState.completedToday,
+                      isStartingWorkout: isStartingWorkout,
+                      onStartWorkout: onStartWorkout,
+                      onResumeWorkout: onResumeWorkout,
                     ),
+
+                    const SizedBox(height: ForgeSpacing.xxl),
+
+                    _WeeklyProgressSection(
+                      program: program,
+                      workoutState: workoutState,
+                    ),
+
+                    const SizedBox(height: ForgeSpacing.xxl),
+
+                    _ActiveProgramPanel(
+                      program: program,
+                      onViewProgram: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) {
+                              return ProgramDetailScreen(program: program);
+                            },
+                          ),
+                        );
+                      },
+                    ),
+
+                    if (state.lastGeneration?.warnings.isNotEmpty ?? false) ...[
+                      const SizedBox(height: ForgeSpacing.lg),
+                      _GenerationWarningBanner(
+                        generation: state.lastGeneration!,
+                      ),
+                    ],
+
+                    if (!program.isOutdated) ...[
+                      const SizedBox(height: ForgeSpacing.xl),
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: isGenerating ? null : onRegenerate,
+                          icon: const Icon(Icons.auto_awesome, size: 18),
+                          label: isGenerating
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Generate new program'),
+                        ),
+                      ),
+                    ],
                   ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -344,8 +354,56 @@ class _HomeContent extends StatelessWidget {
   }
 }
 
-class _ProgramOutdatedCard extends StatelessWidget {
-  const _ProgramOutdatedCard({
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({required this.email, required this.onRefresh});
+
+  final String email;
+
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'FORGE',
+                style: Theme.of(context).textTheme.headlineLarge
+                    ?.copyWith(color: ForgeColors.primary, letterSpacing: -1.3),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Ready to train?',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                email,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          onPressed: () async {
+            await onRefresh();
+          },
+          tooltip: 'Refresh',
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProgramOutdatedBanner extends StatelessWidget {
+  const _ProgramOutdatedBanner({
     required this.isGenerating,
     required this.onRegenerate,
   });
@@ -355,115 +413,119 @@ class _ProgramOutdatedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.lg),
+      decoration: BoxDecoration(
+        color: ForgeColors.warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(ForgeRadius.md),
+        border: Border.all(color: ForgeColors.warning.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.update_rounded, color: ForgeColors.warning),
+          const SizedBox(width: ForgeSpacing.md),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.update, color: colorScheme.primary, size: 28),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Training setup changed',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Your active program was created '
-                        'from an older training setup. '
-                        'Regenerate it to apply your latest '
-                        'goals, schedule, experience, muscle '
-                        'priorities, equipment, and sports.',
-                      ),
-                    ],
+                Text(
+                  'Training setup changed',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Your active program uses an '
+                  'older training setup.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: ForgeSpacing.md),
+                TextButton(
+                  onPressed: isGenerating ? null : onRegenerate,
+                  style: TextButton.styleFrom(
+                    foregroundColor: ForgeColors.warning,
+                    padding: EdgeInsets.zero,
                   ),
+                  child: isGenerating
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Regenerate program'),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: isGenerating ? null : onRegenerate,
-                icon: const Icon(Icons.auto_awesome),
-                label: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: isGenerating
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Regenerate Program'),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _NoProgramCard extends StatelessWidget {
-  const _NoProgramCard({required this.isGenerating, required this.onGenerate});
+class _NoProgramPanel extends StatelessWidget {
+  const _NoProgramPanel({required this.isGenerating, required this.onGenerate});
 
   final bool isGenerating;
   final VoidCallback onGenerate;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.fitness_center, size: 48),
-            const SizedBox(height: 16),
-            Text(
-              'Your training setup is ready',
-              style: Theme.of(context).textTheme.titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.xl),
+      decoration: BoxDecoration(
+        color: ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: ForgeColors.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(ForgeRadius.md),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'FORGE can now build a training program using your goals, experience, schedule, muscle priorities, equipment, and sports activities.',
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: isGenerating ? null : onGenerate,
-              icon: const Icon(Icons.auto_awesome),
-              label: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                child: isGenerating
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Generate My Program'),
-              ),
-            ),
-          ],
-        ),
+            child: const Icon(Icons.fitness_center, color: ForgeColors.primary),
+          ),
+          const SizedBox(height: ForgeSpacing.lg),
+          Text(
+            'Your setup is ready',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'FORGE can build your first '
+            'training program from your '
+            'goals, schedule, priorities, '
+            'equipment, and sports.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: ForgeSpacing.xl),
+          FilledButton.icon(
+            onPressed: isGenerating ? null : onGenerate,
+            icon: const Icon(Icons.auto_awesome),
+            label: isGenerating
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.black,
+                    ),
+                  )
+                : const Text('Generate My Program'),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _TodayTrainingCard extends StatelessWidget {
-  const _TodayTrainingCard({
+class _TodayTrainingPanel extends StatelessWidget {
+  const _TodayTrainingPanel({
     required this.program,
     required this.currentWorkout,
     required this.completedToday,
@@ -473,10 +535,15 @@ class _TodayTrainingCard extends StatelessWidget {
   });
 
   final ProgramDetailData program;
+
   final WorkoutSessionData? currentWorkout;
+
   final WorkoutSummaryData? completedToday;
+
   final bool isStartingWorkout;
+
   final ValueChanged<ProgramDayData> onStartWorkout;
+
   final VoidCallback onResumeWorkout;
 
   ProgramDayData? _todaySession() {
@@ -496,121 +563,178 @@ class _TodayTrainingCard extends StatelessWidget {
     final session = _todaySession();
     final inProgress = currentWorkout;
     final completed = completedToday;
+
     final completedScheduledSession =
         session != null &&
         completed != null &&
         completed.programVersionNumber == program.versionNumber &&
         completed.dayOfWeek == session.dayOfWeek;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Today's Training",
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-            const SizedBox(height: 12),
+    final primarySessionName =
+        inProgress?.dayName ?? session?.name ?? 'Recovery Day';
 
-            if (session == null) ...[
-              Row(
-                children: [
-                  const Icon(Icons.self_improvement, size: 32),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Recovery Day',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text('No programmed gym session today.'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ] else ...[
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.xl),
+      decoration: BoxDecoration(
+        color: ForgeColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.outlineStrong),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
               Text(
-                session.name,
-                style: Theme.of(context).textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${weekdayLabel(session.dayOfWeek)} • '
-                '${session.estimatedDurationMinutes} min • '
-                '${session.exercises.length} exercises',
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Your workout is ready. The interactive workout session will be connected in the next training step.',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
-            if (inProgress != null) ...[
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: onResumeWorkout,
-                  icon: const Icon(Icons.play_arrow),
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text('Resume ${inProgress.dayName}'),
-                  ),
+                inProgress != null ? 'IN PROGRESS' : 'TODAY',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: ForgeColors.primary,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-            ] else if (completedScheduledSession) ...[
-              const SizedBox(height: 20),
-              const Row(
-                children: [
-                  Icon(Icons.check_circle),
-                  SizedBox(width: 8),
-                  Text(
-                    'Workout completed today',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ] else if (session != null) ...[
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: isStartingWorkout
-                      ? null
-                      : () {
-                          onStartWorkout(session);
-                        },
-                  icon: const Icon(Icons.play_arrow),
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: isStartingWorkout
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Start Workout'),
-                  ),
+              const Spacer(),
+              if (completedScheduledSession)
+                const _StatusPill(
+                  icon: Icons.check_rounded,
+                  label: 'DONE',
+                  color: ForgeColors.success,
                 ),
-              ),
             ],
+          ),
+
+          const SizedBox(height: ForgeSpacing.lg),
+
+          Text(
+            primarySessionName,
+            style: Theme.of(context).textTheme.headlineLarge,
+          ),
+
+          const SizedBox(height: 8),
+
+          if (inProgress != null)
+            Text(
+              'Workout session in progress',
+              style: Theme.of(context).textTheme.bodyMedium,
+            )
+          else if (session == null)
+            Text(
+              'No programmed gym session '
+              'today. Recover and come back '
+              'strong.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                _MetaItem(
+                  icon: Icons.calendar_today_outlined,
+                  label: weekdayLabel(session.dayOfWeek),
+                ),
+                _MetaItem(
+                  icon: Icons.schedule_outlined,
+                  label: '${session.estimatedDurationMinutes} min',
+                ),
+                _MetaItem(
+                  icon: Icons.fitness_center,
+                  label: '${session.exercises.length} exercises',
+                ),
+              ],
+            ),
+
+          if (inProgress != null) ...[
+            const SizedBox(height: ForgeSpacing.xl),
+            FilledButton.icon(
+              onPressed: onResumeWorkout,
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: const Text('RESUME WORKOUT'),
+            ),
+          ] else if (session != null && !completedScheduledSession) ...[
+            const SizedBox(height: ForgeSpacing.xl),
+            FilledButton.icon(
+              onPressed: isStartingWorkout
+                  ? null
+                  : () {
+                      onStartWorkout(session);
+                    },
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: isStartingWorkout
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.black,
+                      ),
+                    )
+                  : const Text('START WORKOUT'),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
 }
 
-class _WeeklyProgressCard extends StatelessWidget {
-  const _WeeklyProgressCard({
+class _MetaItem extends StatelessWidget {
+  const _MetaItem({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: ForgeColors.textSecondary),
+        const SizedBox(width: 5),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+      ],
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall
+                ?.copyWith(color: color, fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WeeklyProgressSection extends StatelessWidget {
+  const _WeeklyProgressSection({
     required this.program,
     required this.workoutState,
   });
@@ -621,11 +745,15 @@ class _WeeklyProgressCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+
     final today = DateTime(now.year, now.month, now.day);
+
     final weekStart = today.subtract(Duration(days: now.weekday - 1));
+
     final weekEnd = weekStart.add(const Duration(days: 7));
 
     final scheduledDays = program.days.map((day) => day.dayOfWeek).toSet();
+
     final completedDays = <int>{};
 
     for (final workout in workoutState.history) {
@@ -647,54 +775,63 @@ class _WeeklyProgressCard extends StatelessWidget {
     }
 
     final completedCount = completedDays.length;
+
     final totalDays = scheduledDays.length;
+
     final progress = totalDays == 0 ? 0.0 : completedCount / totalDays;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Row(
-              children: [
-                const Icon(Icons.bar_chart),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Weekly Progress',
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w600),
-                  ),
+            Expanded(
+              child: Text(
+                'THIS WEEK',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: ForgeColors.textSecondary,
+                  letterSpacing: 1.1,
+                  fontWeight: FontWeight.w800,
                 ),
-                Text(
-                  '$completedCount / $totalDays',
-                  style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 16),
-            LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              borderRadius: BorderRadius.circular(99),
-            ),
-            const SizedBox(height: 12),
             Text(
-              completedCount == totalDays && totalDays > 0
-                  ? 'Weekly training complete.'
-                  : '$completedCount of $totalDays scheduled workouts completed.',
+              '$completedCount / $totalDays',
+              style: Theme.of(context).textTheme.headlineSmall
+                  ?.copyWith(color: ForgeColors.primary),
             ),
           ],
         ),
-      ),
+
+        const SizedBox(height: ForgeSpacing.md),
+
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 8,
+            backgroundColor: ForgeColors.surfaceRaised,
+          ),
+        ),
+
+        const SizedBox(height: ForgeSpacing.md),
+
+        Text(
+          completedCount == totalDays && totalDays > 0
+              ? 'Weekly training complete.'
+              : '$completedCount of '
+                    '$totalDays scheduled '
+                    'workouts completed.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      ],
     );
   }
 }
 
-class _ActiveProgramCard extends StatelessWidget {
-  const _ActiveProgramCard({
+class _ActiveProgramPanel extends StatelessWidget {
+  const _ActiveProgramPanel({
     required this.program,
     required this.onViewProgram,
   });
@@ -704,83 +841,108 @@ class _ActiveProgramCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Active Program',
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w600),
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.lg),
+      decoration: BoxDecoration(
+        color: ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'CURRENT PROGRAM',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: ForgeColors.textSecondary,
+                    letterSpacing: 1.1,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                Chip(label: Text('v${program.versionNumber}')),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              program.name,
-              style: Theme.of(context).textTheme.titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${_goalLabel(program.goal)} • '
-              '${program.days.length} training days',
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${program.totalExercises} exercise assignments • '
-              'Generator ${program.generatorVersion}',
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: onViewProgram,
-                icon: const Icon(Icons.calendar_month_outlined),
-                label: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Text('View Program'),
-                ),
               ),
-            ),
-          ],
-        ),
+              _StatusPill(
+                icon: Icons.bolt_rounded,
+                label: 'V${program.versionNumber}',
+                color: ForgeColors.primary,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: ForgeSpacing.lg),
+
+          Text(program.name, style: Theme.of(context).textTheme.titleLarge),
+
+          const SizedBox(height: 6),
+
+          Text(
+            '${_goalLabel(program.goal)} '
+            '\u2022 '
+            '${program.days.length} '
+            'training days',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+
+          const SizedBox(height: 4),
+
+          Text(
+            '${program.totalExercises} '
+            'exercise assignments '
+            '\u2022 '
+            'Generator '
+            '${program.generatorVersion}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+
+          const SizedBox(height: ForgeSpacing.lg),
+
+          OutlinedButton.icon(
+            onPressed: onViewProgram,
+            icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+            label: const Text('View Program'),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _GenerationWarningCard extends StatelessWidget {
-  const _GenerationWarningCard({required this.generation});
+class _GenerationWarningBanner extends StatelessWidget {
+  const _GenerationWarningBanner({required this.generation});
 
   final ProgramGenerateData generation;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.info_outline),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Program generated successfully with '
-                '${generation.warnings.length} optimization warning(s). '
-                'These are not generation failures.',
-              ),
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.lg),
+      decoration: BoxDecoration(
+        color: ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.md),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            color: ForgeColors.textSecondary,
+            size: 20,
+          ),
+          const SizedBox(width: ForgeSpacing.md),
+          Expanded(
+            child: Text(
+              'Program generated with '
+              '${generation.warnings.length} '
+              'optimization warning(s). '
+              'These are not generation '
+              'failures.',
+              style: Theme.of(context).textTheme.bodySmall,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
