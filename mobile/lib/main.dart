@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/theme/forge_theme.dart';
 import 'features/auth/presentation/auth_gate.dart';
 
 void main() {
@@ -15,10 +16,9 @@ class ForgeApp extends StatelessWidget {
     return MaterialApp(
       title: 'FORGE',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
-        useMaterial3: true,
-      ),
+      theme: ForgeTheme.dark,
+      darkTheme: ForgeTheme.dark,
+      themeMode: ThemeMode.dark,
       home: const AuthGate(),
     );
   }

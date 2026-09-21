@@ -35,9 +35,7 @@ class _GoalSelectionScreenState extends ConsumerState<GoalSelectionScreen> {
 
     if (initialGoal != null) {
       _primaryGoal = initialGoal.primaryGoal;
-      _secondaryGoals.addAll(
-        initialGoal.secondaryGoals,
-      );
+      _secondaryGoals.addAll(initialGoal.secondaryGoals);
     }
   }
 
@@ -132,11 +130,7 @@ class _GoalSelectionScreenState extends ConsumerState<GoalSelectionScreen> {
 
     return Scaffold(
       appBar: widget.settingsMode
-          ? AppBar(
-              title: const Text(
-                'Training Goals',
-              ),
-            )
+          ? AppBar(title: const Text('Training Goals'))
           : null,
       body: SafeArea(
         child: Center(
@@ -219,9 +213,7 @@ class _GoalSelectionScreenState extends ConsumerState<GoalSelectionScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : Text(
-                              widget.settingsMode
-                                  ? 'Save Changes'
-                                  : 'Continue',
+                              widget.settingsMode ? 'Save Changes' : 'Continue',
                             ),
                     ),
                   ),
