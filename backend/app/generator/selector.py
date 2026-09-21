@@ -41,6 +41,7 @@ WEEKLY_OVERSHOOT_PENALTY = {
 }
 
 MIN_RETAINED_EFFECTIVE_SETS = 2.0
+PRIMARY_COVERAGE_RESCUE_MIN_WEEKLY_RATIO = 0.70
 
 MAINTENANCE_RESCUE_MAX_EFFECTIVE_SETS = 2.0
 
@@ -522,6 +523,61 @@ def _apply_weekly_contribution(
         )
 
 
+def _needs_primary_coverage_rescue(
+    exercise: ExerciseCandidate,
+    targets: dict[str, float],
+    achieved: dict[str, float],
+    weekly_targets: dict[str, float],
+    projected_weekly_actual: dict[str, float],
+) -> bool:
+
+    muscle_code = exercise.primary_muscle
+
+    session_target = targets.get(
+        muscle_code
+    )
+
+    if (
+        session_target is None
+        or session_target <= DEMAND_TOLERANCE
+    ):
+        return False
+
+    session_achieved = achieved.get(
+        muscle_code,
+        0.0,
+    )
+
+    # Never force work beyond the amount
+    # allocated to the current session.
+    if session_achieved >= session_target:
+        return False
+
+    weekly_target = weekly_targets.get(
+        muscle_code
+    )
+
+    if (
+        weekly_target is None
+        or weekly_target <= DEMAND_TOLERANCE
+    ):
+        return False
+
+    weekly_floor = (
+        weekly_target
+        * PRIMARY_COVERAGE_RESCUE_MIN_WEEKLY_RATIO
+    )
+
+    weekly_achieved = (
+        projected_weekly_actual.get(
+            muscle_code,
+            0.0,
+        )
+    )
+
+    return weekly_achieved < weekly_floor
+
+
 def _select_for_session(
     context: GeneratorContext,
     session,
@@ -899,8 +955,38 @@ def _select_for_session(
 
         best_score, best = scored[0]
 
+        coverage_rescue = False
+
         if best_score <= 0:
-            break
+            rescue_candidate = next(
+                (
+                    (
+                        score,
+                        exercise,
+                    )
+                    for score, exercise
+                    in scored
+                    if _needs_primary_coverage_rescue(
+                        exercise=exercise,
+                        targets=targets,
+                        achieved=achieved,
+                        weekly_targets=weekly_targets,
+                        projected_weekly_actual=(
+                            projected_weekly_actual
+                        ),
+                    )
+                ),
+                None,
+            )
+
+            if rescue_candidate is None:
+                break
+
+            best_score, best = (
+                rescue_candidate
+            )
+
+            coverage_rescue = True
 
         if best.code not in selected:
             selection_counter += 1
@@ -920,6 +1006,13 @@ def _select_for_session(
                         set(targets),
                     )
                 ),
+            )
+
+        if coverage_rescue:
+            selected[
+                best.code
+            ].reason_codes.add(
+                "PRIMARY_COVERAGE_RESCUE"
             )
 
         selected[
