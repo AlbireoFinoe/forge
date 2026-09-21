@@ -182,19 +182,19 @@ def test_primary_coverage_rescue_reaches_valid_floor_when_score_turns_negative()
             "normal",
             5.0,
             10.0,
-            3.0,
+            5.0,
             4,
         ),
         (
             "high",
             5.0,
             14.0,
-            6.0,
-            4,
+            10.0,
+            3,
         ),
     ),
 )
-def test_primary_coverage_rescue_respects_minimum_floor_for_all_priorities(
+def test_primary_coverage_rescue_reaches_quality_floor_for_all_priorities(
     priority,
     session_target,
     weekly_target,

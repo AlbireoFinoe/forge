@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+﻿from dataclasses import dataclass
 from itertools import permutations
 
 from app.generator.context import (
@@ -657,7 +657,7 @@ def _build_standard_split(
             ),
             _session(
                 "UPPER_PULL_PUSH",
-                "Upper B",
+                "Upper Pull + Push",
                 (
                     "BACK",
                     "CHEST",

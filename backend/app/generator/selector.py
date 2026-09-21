@@ -41,7 +41,11 @@ WEEKLY_OVERSHOOT_PENALTY = {
 }
 
 MIN_RETAINED_EFFECTIVE_SETS = 2.0
-PRIMARY_COVERAGE_RESCUE_MIN_WEEKLY_RATIO = 0.70
+PRIMARY_COVERAGE_RESCUE_MIN_WEEKLY_RATIO = {
+    "maintenance": 0.80,
+    "normal": 0.85,
+    "high": 0.90,
+}
 
 MAINTENANCE_RESCUE_MAX_EFFECTIVE_SETS = 2.0
 
@@ -525,6 +529,7 @@ def _apply_weekly_contribution(
 
 def _needs_primary_coverage_rescue(
     exercise: ExerciseCandidate,
+    priority: str,
     targets: dict[str, float],
     achieved: dict[str, float],
     weekly_targets: dict[str, float],
@@ -565,7 +570,10 @@ def _needs_primary_coverage_rescue(
 
     weekly_floor = (
         weekly_target
-        * PRIMARY_COVERAGE_RESCUE_MIN_WEEKLY_RATIO
+        * PRIMARY_COVERAGE_RESCUE_MIN_WEEKLY_RATIO.get(
+            priority,
+            0.70,
+        )
     )
 
     weekly_achieved = (
@@ -968,6 +976,10 @@ def _select_for_session(
                     in scored
                     if _needs_primary_coverage_rescue(
                         exercise=exercise,
+                        priority=context.muscle_priorities.get(
+                            exercise.primary_muscle,
+                            "normal",
+                        ),
                         targets=targets,
                         achieved=achieved,
                         weekly_targets=weekly_targets,
