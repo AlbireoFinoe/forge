@@ -22,10 +22,29 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
     WorkoutExerciseData exercise,
     WorkoutSetData workoutSet,
   ) async {
-    final result = await showDialog<_SetLogResult>(
+    WorkoutSetData? previousSet;
+
+    for (final candidate in exercise.sets) {
+      if (!candidate.isCompleted ||
+          candidate.setNumber >= workoutSet.setNumber) {
+        continue;
+      }
+
+      if (previousSet == null || candidate.setNumber > previousSet.setNumber) {
+        previousSet = candidate;
+      }
+    }
+
+    final result = await showModalBottomSheet<_SetLogResult>(
       context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
       builder: (context) {
-        return _SetLogDialog(exercise: exercise, workoutSet: workoutSet);
+        return _SetLogSheet(
+          exercise: exercise,
+          workoutSet: workoutSet,
+          previousSet: previousSet,
+        );
       },
     );
 
@@ -532,36 +551,47 @@ class _WorkoutSetTile extends StatelessWidget {
   }
 }
 
-class _SetLogDialog extends StatefulWidget {
-  const _SetLogDialog({required this.exercise, required this.workoutSet});
+class _SetLogSheet extends StatefulWidget {
+  const _SetLogSheet({
+    required this.exercise,
+    required this.workoutSet,
+    required this.previousSet,
+  });
 
   final WorkoutExerciseData exercise;
   final WorkoutSetData workoutSet;
+  final WorkoutSetData? previousSet;
 
   @override
-  State<_SetLogDialog> createState() => _SetLogDialogState();
+  State<_SetLogSheet> createState() => _SetLogSheetState();
 }
 
-class _SetLogDialogState extends State<_SetLogDialog> {
+class _SetLogSheetState extends State<_SetLogSheet> {
   final _formKey = GlobalKey<FormState>();
 
   late final TextEditingController _weightController;
+
   late final TextEditingController _repsController;
+
   late final TextEditingController _rpeController;
 
   @override
   void initState() {
     super.initState();
 
+    final suggestedWeight =
+        widget.workoutSet.weightKg ?? widget.previousSet?.weightKg;
+
+    final suggestedReps =
+        widget.workoutSet.actualReps ??
+        widget.previousSet?.actualReps ??
+        widget.exercise.targetMaxReps;
+
     _weightController = TextEditingController(
-      text: widget.workoutSet.weightKg == null
-          ? ''
-          : _formatNumber(widget.workoutSet.weightKg!),
+      text: suggestedWeight == null ? '' : _formatNumber(suggestedWeight),
     );
 
-    _repsController = TextEditingController(
-      text: widget.workoutSet.actualReps?.toString() ?? '',
-    );
+    _repsController = TextEditingController(text: suggestedReps.toString());
 
     _rpeController = TextEditingController(
       text: widget.workoutSet.rpe == null
@@ -599,105 +629,189 @@ class _SetLogDialogState extends State<_SetLogDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(
-        '${widget.exercise.exerciseName} '
-        '— Set ${widget.workoutSet.setNumber}',
-      ),
-      content: SizedBox(
-        width: 420,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _weightController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Weight',
-                  suffixText: 'kg',
-                ),
-                validator: (value) {
-                  final text = value?.trim() ?? '';
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
-                  if (text.isEmpty) {
+    final targetReps =
+        widget.exercise.targetMinReps == widget.exercise.targetMaxReps
+        ? '${widget.exercise.targetMinReps}'
+        : '${widget.exercise.targetMinReps}'
+              '\u2013'
+              '${widget.exercise.targetMaxReps}';
+
+    final isEditing = widget.workoutSet.isCompleted;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + bottomInset),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${widget.exercise.exerciseName} '
+                  '\u2014 Set '
+                  '${widget.workoutSet.setNumber}',
+                  style: Theme.of(context).textTheme.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+
+                const SizedBox(height: 6),
+
+                Text(
+                  'Target $targetReps reps '
+                  '\u2022 '
+                  '${widget.exercise.targetRestSeconds} '
+                  'sec rest',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+
+                const SizedBox(height: 12),
+
+                if (!isEditing && widget.previousSet != null)
+                  Text(
+                    'Weight and reps copied from '
+                    'Set '
+                    '${widget.previousSet!.setNumber}. '
+                    'Adjust them if this set was '
+                    'different.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  )
+                else if (!isEditing)
+                  Text(
+                    'Reps are prefilled from the '
+                    'target. Enter what you actually '
+                    'performed.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+
+                const SizedBox(height: 20),
+
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _weightController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Weight',
+                          suffixText: 'kg',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          final input = value?.trim() ?? '';
+
+                          if (input.isEmpty) {
+                            return null;
+                          }
+
+                          final weight = double.tryParse(input);
+
+                          if (weight == null || weight < 0) {
+                            return 'Invalid weight';
+                          }
+
+                          return null;
+                        },
+                      ),
+                    ),
+
+                    const SizedBox(width: 12),
+
+                    Expanded(
+                      child: TextFormField(
+                        controller: _repsController,
+                        keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Reps',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          final reps = int.tryParse(value?.trim() ?? '');
+
+                          if (reps == null || reps < 0) {
+                            return 'Invalid reps';
+                          }
+
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                TextFormField(
+                  controller: _rpeController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) {
+                    _submit();
+                  },
+                  decoration: const InputDecoration(
+                    labelText: 'RPE',
+                    hintText: 'Optional',
+                    helperText: 'How hard was this set? 1\u201310',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    final input = value?.trim() ?? '';
+
+                    if (input.isEmpty) {
+                      return null;
+                    }
+
+                    final rpe = double.tryParse(input);
+
+                    if (rpe == null || rpe < 1 || rpe > 10) {
+                      return 'RPE must be 1\u201310';
+                    }
+
                     return null;
-                  }
-
-                  final weight = double.tryParse(text);
-
-                  if (weight == null || weight < 0) {
-                    return 'Enter a valid weight.';
-                  }
-
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              TextFormField(
-                controller: _repsController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Reps'),
-                validator: (value) {
-                  final reps = int.tryParse(value?.trim() ?? '');
-
-                  if (reps == null || reps < 0) {
-                    return 'Enter valid reps.';
-                  }
-
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              TextFormField(
-                controller: _rpeController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+                  },
                 ),
-                decoration: const InputDecoration(
-                  labelText: 'RPE',
-                  hintText: 'Optional',
+
+                const SizedBox(height: 24),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _submit,
+                    icon: Icon(isEditing ? Icons.edit_outlined : Icons.check),
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: Text(isEditing ? 'Update Set' : 'Complete Set'),
+                    ),
+                  ),
                 ),
-                validator: (value) {
-                  final text = value?.trim() ?? '';
 
-                  if (text.isEmpty) {
-                    return null;
-                  }
+                const SizedBox(height: 8),
 
-                  final rpe = double.tryParse(text);
-
-                  if (rpe == null || rpe < 1 || rpe > 10) {
-                    return 'RPE must be between 1 and 10.';
-                  }
-
-                  return null;
-                },
-              ),
-            ],
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('Cancel'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _submit,
-          child: Text(
-            widget.workoutSet.isCompleted ? 'Update Set' : 'Save Set',
-          ),
-        ),
-      ],
     );
   }
 }
