@@ -269,7 +269,7 @@ class _HomeContent extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _HomeHeader(email: user.email, onRefresh: onRefresh),
+                  _HomeHeader(fullName: user.fullName),
 
                   const SizedBox(height: ForgeSpacing.xxl),
 
@@ -355,47 +355,45 @@ class _HomeContent extends StatelessWidget {
 }
 
 class _HomeHeader extends StatelessWidget {
-  const _HomeHeader({required this.email, required this.onRefresh});
+  const _HomeHeader({required this.fullName});
 
-  final String email;
+  final String? fullName;
 
-  final Future<void> Function() onRefresh;
+  String? get _firstName {
+    final value = fullName?.trim();
+
+    if (value == null || value.isEmpty) {
+      return null;
+    }
+
+    final parts = value
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+
+    if (parts.isEmpty) {
+      return null;
+    }
+
+    return parts.first;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final firstName = _firstName;
+
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'FORGE',
-                style: Theme.of(context).textTheme.headlineLarge
-                    ?.copyWith(color: ForgeColors.primary, letterSpacing: -1.3),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Ready to train?',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                email,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
+        Text(
+          'FORGE',
+          style: Theme.of(context).textTheme.headlineLarge
+              ?.copyWith(color: ForgeColors.primary, letterSpacing: -1.3),
         ),
-        IconButton(
-          onPressed: () async {
-            await onRefresh();
-          },
-          tooltip: 'Refresh',
-          icon: const Icon(Icons.refresh_rounded),
+        const SizedBox(height: 6),
+        Text(
+          firstName == null ? 'Ready to train?' : 'Ready to train, $firstName?',
+          style: Theme.of(context).textTheme.titleMedium,
         ),
       ],
     );

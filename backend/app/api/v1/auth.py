@@ -53,6 +53,7 @@ def register(
 
     return create_user(
         db,
+        payload.full_name,
         payload.email,
         payload.password,
     )

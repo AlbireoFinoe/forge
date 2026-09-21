@@ -27,13 +27,14 @@ class AuthRepository {
   final SecureTokenStorage _tokenStorage;
 
   Future<AuthUser> register({
+    required String fullName,
     required String email,
     required String password,
   }) async {
     try {
       final response = await _apiClient.dio.post<dynamic>(
         '/auth/register',
-        data: {'email': email, 'password': password},
+        data: {'full_name': fullName, 'email': email, 'password': password},
       );
 
       return AuthUser.fromJson(_asJsonObject(response.data));
@@ -89,6 +90,19 @@ class AuthRepository {
   Future<AuthUser> getCurrentUser() async {
     try {
       final response = await _apiClient.dio.get<dynamic>('/users/me');
+
+      return AuthUser.fromJson(_asJsonObject(response.data));
+    } on DioException catch (error) {
+      throw _toAuthException(error);
+    }
+  }
+
+  Future<AuthUser> updateCurrentUserName({required String fullName}) async {
+    try {
+      final response = await _apiClient.dio.patch<dynamic>(
+        '/users/me',
+        data: {'full_name': fullName},
+      );
 
       return AuthUser.fromJson(_asJsonObject(response.data));
     } on DioException catch (error) {

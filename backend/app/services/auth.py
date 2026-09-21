@@ -18,10 +18,12 @@ def get_user_by_email(
 
 def create_user(
     db: Session,
+    full_name: str,
     email: str,
     password: str,
 ) -> User:
     user = User(
+        full_name=full_name,
         email=email.lower(),
         password_hash=hash_password(password),
     )

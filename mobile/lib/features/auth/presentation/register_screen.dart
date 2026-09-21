@@ -14,6 +14,7 @@ class RegisterScreen extends ConsumerStatefulWidget {
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
 
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -24,6 +25,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -44,6 +46,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       await ref
           .read(authSessionControllerProvider.notifier)
           .registerAndLogin(
+            fullName: _nameController.text.trim(),
             email: _emailController.text.trim(),
             password: _passwordController.text,
           );
@@ -102,6 +105,41 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                     const SizedBox(height: 32),
+                    TextFormField(
+                      controller: _nameController,
+                      keyboardType: TextInputType.name,
+                      textCapitalization: TextCapitalization.words,
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const [AutofillHints.name],
+                      decoration: const InputDecoration(
+                        labelText: 'Full Name',
+                        hintText: 'e.g. Albireo Musyaffa Finoe',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        final name = value?.trim() ?? '';
+
+                        if (name.isEmpty) {
+                          return 'Name is required.';
+                        }
+
+                        final normalized = name
+                            .split(RegExp(r'\s+'))
+                            .where((part) => part.isNotEmpty)
+                            .join(' ');
+
+                        if (normalized.length < 2) {
+                          return 'Name must contain at least 2 characters.';
+                        }
+
+                        if (normalized.length > 120) {
+                          return 'Name must not exceed 120 characters.';
+                        }
+
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,

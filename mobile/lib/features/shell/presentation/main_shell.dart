@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/forge_theme.dart';
+import '../../auth/data/auth_user.dart';
+import '../../home/presentation/home_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../progress/presentation/progress_screen.dart';
 import '../../train/presentation/train_screen.dart';
 
 class MainShell extends StatefulWidget {
-  const MainShell({required this.home, required this.userEmail, super.key});
+  const MainShell({required this.user, super.key});
 
-  final Widget home;
-  final String userEmail;
+  final AuthUser user;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -24,10 +25,10 @@ class _MainShellState extends State<MainShell> {
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          widget.home,
+          HomeScreen(user: widget.user),
           const TrainScreen(),
           const ProgressScreen(),
-          ProfileScreen(email: widget.userEmail),
+          ProfileScreen(user: widget.user),
         ],
       ),
       bottomNavigationBar: _ForgeBottomNavigation(

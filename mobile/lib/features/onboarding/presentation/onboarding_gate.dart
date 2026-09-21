@@ -9,7 +9,6 @@ import '../../muscles/presentation/muscle_priority_gate.dart';
 import '../../equipment/presentation/equipment_gate.dart';
 import '../../sports/presentation/sports_gate.dart';
 import '../../profile/presentation/profile_gate.dart';
-import '../../home/presentation/home_screen.dart';
 import '../../shell/presentation/main_shell.dart';
 
 class OnboardingGate extends ConsumerWidget {
@@ -65,12 +64,7 @@ class OnboardingGate extends ConsumerWidget {
             onComplete: EquipmentGate(
               onComplete: SportsGate(
                 configured: data.trainingPreferences!.sportsConfigured,
-                onComplete: MainShell(
-                  home: HomeScreen(
-                    user: user,
-                  ),
-                  userEmail: user.email,
-                ),
+                onComplete: MainShell(user: user),
               ),
             ),
           ),

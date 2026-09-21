@@ -78,14 +78,33 @@ class AuthSessionController extends AsyncNotifier<AuthSessionState> {
   }
 
   Future<void> registerAndLogin({
+    required String fullName,
     required String email,
     required String password,
   }) async {
-    await _authRepository.register(email: email, password: password);
+    await _authRepository.register(
+      fullName: fullName,
+      email: email,
+      password: password,
+    );
 
     final user = await _authRepository.login(email: email, password: password);
 
     _invalidateUserState();
+
+    state = AsyncData(AuthSessionState.authenticated(user));
+  }
+
+  Future<void> updateFullName(String fullName) async {
+    final current = state.value;
+
+    if (current == null || !current.isAuthenticated) {
+      throw const AuthException('You must be signed in to update your name.');
+    }
+
+    final user = await _authRepository.updateCurrentUserName(
+      fullName: fullName,
+    );
 
     state = AsyncData(AuthSessionState.authenticated(user));
   }
