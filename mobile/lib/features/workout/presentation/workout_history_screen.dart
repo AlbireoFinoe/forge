@@ -145,12 +145,14 @@ class _WorkoutHistoryCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${weekdayLabel(workout.dayOfWeek)} • '
+                      '${weekdayLabel((workout.completedAt ?? workout.startedAt).toLocal().weekday)} • '
                       'Program v${workout.programVersionNumber}',
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _formatHistoryDate(workout.startedAt),
+                      _formatHistoryDate(
+                        workout.completedAt ?? workout.startedAt,
+                      ),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],

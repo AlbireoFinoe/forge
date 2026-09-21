@@ -5,6 +5,7 @@ import '../../../core/constants/weekdays.dart';
 import '../data/workout_models.dart';
 import '../data/workout_repository.dart';
 import 'workout_controller.dart';
+import 'workout_history_detail_screen.dart';
 
 class WorkoutSessionScreen extends ConsumerStatefulWidget {
   const WorkoutSessionScreen({super.key});
@@ -113,7 +114,8 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
         return AlertDialog(
           title: const Text('Finish workout?'),
           content: const Text(
-            'Your completed sets will be saved to your workout history.',
+            'Your completed sets will be saved '
+            'to your workout history.',
           ),
           actions: [
             TextButton(
@@ -150,31 +152,16 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
         return;
       }
 
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) {
-          return AlertDialog(
-            icon: const Icon(Icons.check_circle_outline, size: 48),
-            title: const Text('Workout Complete'),
-            content: Text(
-              '${completed.dayName} has been saved to your workout history.',
-            ),
-            actions: [
-              FilledButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Done'),
-              ),
-            ],
-          );
-        },
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (context) {
+            return WorkoutHistoryDetailScreen(
+              workoutId: completed.id,
+              title: 'Workout Summary',
+            );
+          },
+        ),
       );
-
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
     } on WorkoutException catch (error) {
       if (!mounted) {
         return;
@@ -182,6 +169,14 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
 
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not finish this workout.')),
+      );
     } finally {
       if (mounted) {
         setState(() {

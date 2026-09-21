@@ -6,16 +6,21 @@ import '../data/workout_models.dart';
 import 'workout_controller.dart';
 
 class WorkoutHistoryDetailScreen extends ConsumerWidget {
-  const WorkoutHistoryDetailScreen({required this.workoutId, super.key});
+  const WorkoutHistoryDetailScreen({
+    required this.workoutId,
+    this.title = 'Workout Detail',
+    super.key,
+  });
 
   final String workoutId;
+  final String title;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final workout = ref.watch(workoutDetailProvider(workoutId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Workout Detail')),
+      appBar: AppBar(title: Text(title)),
       body: workout.when(
         loading: () {
           return const Center(child: CircularProgressIndicator());
