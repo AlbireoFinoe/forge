@@ -28,6 +28,7 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
   int _restTotalSeconds = 0;
 
   String? _restExerciseName;
+  String? _restExerciseId;
 
   @override
   void initState() {
@@ -52,26 +53,17 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
     }
   }
 
-  bool _hasRemainingWorkAfterSet(WorkoutSetData workoutSet) {
-    final session = ref.read(workoutControllerProvider).value?.currentWorkout;
-
-    if (session == null) {
-      return true;
-    }
-
-    for (final exercise in session.exercises) {
-      if (exercise.isSkipped) {
+  bool _hasRemainingSetInExercise(
+    WorkoutExerciseData exercise,
+    WorkoutSetData workoutSet,
+  ) {
+    for (final candidate in exercise.sets) {
+      if (candidate.id == workoutSet.id) {
         continue;
       }
 
-      for (final candidate in exercise.sets) {
-        if (candidate.id == workoutSet.id) {
-          continue;
-        }
-
-        if (!candidate.isCompleted) {
-          return true;
-        }
+      if (!candidate.isCompleted) {
+        return true;
       }
     }
 
@@ -94,6 +86,7 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
       _restRemainingSeconds = seconds;
       _restTotalSeconds = seconds;
       _restExerciseName = exercise.exerciseName;
+      _restExerciseId = exercise.id;
     });
 
     _restTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -125,6 +118,7 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
         _restRemainingSeconds = 0;
         _restTotalSeconds = 0;
         _restExerciseName = null;
+        _restExerciseId = null;
       });
 
       return;
@@ -154,6 +148,7 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
       _restRemainingSeconds = 0;
       _restTotalSeconds = 0;
       _restExerciseName = null;
+      _restExerciseId = null;
     });
   }
 
@@ -211,7 +206,7 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
     final shouldStartRest =
         !wasAlreadyCompleted &&
         exercise.targetRestSeconds > 0 &&
-        _hasRemainingWorkAfterSet(workoutSet);
+        _hasRemainingSetInExercise(exercise, workoutSet);
 
     try {
       await ref
@@ -277,6 +272,10 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
       await ref
           .read(workoutControllerProvider.notifier)
           .skipExercise(exercise.id);
+
+      if (_restExerciseId == exercise.id) {
+        _skipRest();
+      }
     } on WorkoutException catch (error) {
       if (!mounted) {
         return;
@@ -376,6 +375,19 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
 
     return Scaffold(
       appBar: AppBar(title: const Text('Workout')),
+      bottomNavigationBar:
+          _restRemainingSeconds > 0 && _restExerciseName != null
+          ? SafeArea(
+              top: false,
+              child: _RestTimerCard(
+                exerciseName: _restExerciseName!,
+                remainingSeconds: _restRemainingSeconds,
+                totalSeconds: _restTotalSeconds,
+                onSkip: _skipRest,
+                onAddThirtySeconds: _addThirtySeconds,
+              ),
+            )
+          : null,
       body: workout.when(
         loading: () {
           return const Center(child: CircularProgressIndicator());
@@ -417,11 +429,8 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
           return _WorkoutContent(
             workout: session,
             isFinishing: _isFinishing,
-            restExerciseName: _restExerciseName,
             restRemainingSeconds: _restRemainingSeconds,
-            restTotalSeconds: _restTotalSeconds,
-            onSkipRest: _skipRest,
-            onAddRest: _addThirtySeconds,
+            restExerciseId: _restExerciseId,
             onLogSet: _logSet,
             onSkipExercise: _skipExercise,
             onFinish: () {
@@ -438,11 +447,8 @@ class _WorkoutContent extends StatelessWidget {
   const _WorkoutContent({
     required this.workout,
     required this.isFinishing,
-    required this.restExerciseName,
     required this.restRemainingSeconds,
-    required this.restTotalSeconds,
-    required this.onSkipRest,
-    required this.onAddRest,
+    required this.restExerciseId,
     required this.onLogSet,
     required this.onSkipExercise,
     required this.onFinish,
@@ -451,12 +457,8 @@ class _WorkoutContent extends StatelessWidget {
   final WorkoutSessionData workout;
   final bool isFinishing;
 
-  final String? restExerciseName;
   final int restRemainingSeconds;
-  final int restTotalSeconds;
-
-  final VoidCallback onSkipRest;
-  final VoidCallback onAddRest;
+  final String? restExerciseId;
 
   final void Function(WorkoutExerciseData exercise, WorkoutSetData workoutSet)
   onLogSet;
@@ -487,17 +489,6 @@ class _WorkoutContent extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          if (restRemainingSeconds > 0 && restExerciseName != null) ...[
-            _RestTimerCard(
-              exerciseName: restExerciseName!,
-              remainingSeconds: restRemainingSeconds,
-              totalSeconds: restTotalSeconds,
-              onSkip: onSkipRest,
-              onAddThirtySeconds: onAddRest,
-            ),
-            const SizedBox(height: 24),
-          ],
-
           Card(
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -527,6 +518,8 @@ class _WorkoutContent extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 16),
               child: _WorkoutExerciseCard(
                 exercise: exercise,
+                isResting:
+                    restRemainingSeconds > 0 && restExerciseId == exercise.id,
                 onLogSet: (set) {
                   onLogSet(exercise, set);
                 },
@@ -594,61 +587,44 @@ class _RestTimerCard extends StatelessWidget {
         ? 0.0
         : (remainingSeconds / totalSeconds).clamp(0.0, 1.0).toDouble();
 
-    return Card(
-      margin: EdgeInsets.zero,
+    return Material(
+      elevation: 10,
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
-                const Icon(Icons.timer_outlined),
-                const SizedBox(width: 10),
+                const Icon(Icons.timer_outlined, size: 20),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Rest Timer',
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    exerciseName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Text(
                   _formatRestTime(remainingSeconds),
-                  style: Theme.of(context).textTheme.headlineSmall
+                  style: Theme.of(context).textTheme.titleLarge
                       ?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
 
-            Text(
-              'After $exerciseName',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-
-            const SizedBox(height: 16),
-
-            LinearProgressIndicator(value: progress),
-
-            const SizedBox(height: 18),
+            LinearProgressIndicator(value: progress, minHeight: 4),
 
             Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onSkip,
-                    icon: const Icon(Icons.skip_next),
-                    label: const Text('Skip Rest'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: onAddThirtySeconds,
-                    icon: const Icon(Icons.add),
-                    label: const Text('+30 sec'),
-                  ),
+                TextButton(onPressed: onSkip, child: const Text('Skip')),
+                TextButton.icon(
+                  onPressed: onAddThirtySeconds,
+                  icon: const Icon(Icons.add, size: 17),
+                  label: const Text('30s'),
                 ),
               ],
             ),
@@ -661,7 +637,6 @@ class _RestTimerCard extends StatelessWidget {
 
 String _formatRestTime(int seconds) {
   final minutes = seconds ~/ 60;
-
   final remaining = (seconds % 60).toString().padLeft(2, '0');
 
   return '${minutes.toString().padLeft(2, '0')}:$remaining';
@@ -692,11 +667,14 @@ class _ProgressStat extends StatelessWidget {
 class _WorkoutExerciseCard extends StatelessWidget {
   const _WorkoutExerciseCard({
     required this.exercise,
+    required this.isResting,
     required this.onLogSet,
     required this.onSkip,
   });
 
   final WorkoutExerciseData exercise;
+  final bool isResting;
+
   final ValueChanged<WorkoutSetData> onLogSet;
   final VoidCallback onSkip;
 
@@ -704,8 +682,18 @@ class _WorkoutExerciseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final reps = exercise.targetMinReps == exercise.targetMaxReps
         ? '${exercise.targetMinReps}'
-        : '${exercise.targetMinReps}–'
+        : '${exercise.targetMinReps}'
+              '\u2013'
               '${exercise.targetMaxReps}';
+
+    String? readySetId;
+
+    for (final workoutSet in exercise.sets) {
+      if (!workoutSet.isCompleted) {
+        readySetId = workoutSet.id;
+        break;
+      }
+    }
 
     return Card(
       margin: EdgeInsets.zero,
@@ -726,11 +714,13 @@ class _WorkoutExerciseCard extends StatelessWidget {
                 _ExerciseStatusChip(exercise: exercise),
               ],
             ),
+
             const SizedBox(height: 8),
 
             Text(
-              '${exercise.targetSets} sets × '
-              '$reps reps • '
+              '${exercise.targetSets} sets '
+              '\u00d7 $reps reps '
+              '\u2022 '
               '${exercise.targetRestSeconds} sec rest',
             ),
 
@@ -742,6 +732,8 @@ class _WorkoutExerciseCard extends StatelessWidget {
                 child: _WorkoutSetTile(
                   workoutSet: workoutSet,
                   enabled: !exercise.isSkipped,
+                  isReady: readySetId == workoutSet.id,
+                  isResting: isResting,
                   onTap: () {
                     onLogSet(workoutSet);
                   },
@@ -800,16 +792,21 @@ class _WorkoutSetTile extends StatelessWidget {
   const _WorkoutSetTile({
     required this.workoutSet,
     required this.enabled,
+    required this.isReady,
+    required this.isResting,
     required this.onTap,
   });
 
   final WorkoutSetData workoutSet;
   final bool enabled;
+  final bool isReady;
+  final bool isResting;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final details = <String>[];
+    final colorScheme = Theme.of(context).colorScheme;
 
     if (workoutSet.weightKg != null) {
       details.add('${_formatNumber(workoutSet.weightKg!)} kg');
@@ -823,18 +820,41 @@ class _WorkoutSetTile extends StatelessWidget {
       details.add('RPE ${_formatNumber(workoutSet.rpe!)}');
     }
 
+    final waitingForRest = isReady && isResting;
+
+    final canOpen =
+        enabled && (workoutSet.isCompleted || (isReady && !isResting));
+
     return ListTile(
-      contentPadding: EdgeInsets.zero,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      tileColor: isReady ? colorScheme.primaryContainer : null,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       leading: CircleAvatar(child: Text('${workoutSet.setNumber}')),
-      title: Text('Set ${workoutSet.setNumber}'),
+      title: Text(
+        'Set ${workoutSet.setNumber}',
+        style: TextStyle(fontWeight: isReady ? FontWeight.bold : null),
+      ),
       subtitle: Text(
-        workoutSet.isCompleted ? details.join(' • ') : 'Not logged yet',
+        workoutSet.isCompleted
+            ? details.join(' \u2022 ')
+            : waitingForRest
+            ? 'Rest before this set'
+            : isReady
+            ? 'Ready to log'
+            : 'Complete previous set first',
       ),
-      trailing: Icon(
-        workoutSet.isCompleted ? Icons.check_circle : Icons.add_circle_outline,
-      ),
-      enabled: enabled,
-      onTap: enabled ? onTap : null,
+      trailing: workoutSet.isCompleted
+          ? const Icon(Icons.check_circle)
+          : waitingForRest
+          ? const Chip(
+              avatar: Icon(Icons.timer_outlined, size: 17),
+              label: Text('RESTING'),
+            )
+          : isReady
+          ? const Chip(label: Text('READY'))
+          : const Icon(Icons.lock_outline),
+      enabled: canOpen,
+      onTap: canOpen ? onTap : null,
     );
   }
 }
