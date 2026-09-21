@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+﻿from dataclasses import dataclass
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -25,7 +25,7 @@ from app.models.training_program import (
 from app.models.user import User
 
 
-GENERATOR_VERSION = "v3"
+GENERATOR_VERSION = "v4"
 
 
 class ProgramGenerationError(Exception):
@@ -408,3 +408,4 @@ def get_user_program_by_id(
             == user.id,
         )
     )
+
