@@ -406,6 +406,197 @@ def _find_trim_candidate(
     return candidates[0][2]
 
 
+def _coverage_not_worse_after_rebalance(
+    session: SessionExercisePlan,
+    before: list[FittedExercise],
+    after: list[FittedExercise],
+) -> bool:
+
+    before_achieved, _ = (
+        _recalculate_achievement(
+            session,
+            before,
+        )
+    )
+
+    after_achieved, _ = (
+        _recalculate_achievement(
+            session,
+            after,
+        )
+    )
+
+    for (
+        muscle,
+        target,
+    ) in session.target_effective_sets.items():
+
+        # Preserve everything already achieved
+        # up to the requested target.
+        #
+        # Example:
+        # target=8, before=6 -> after must stay >=6.
+        # target=8, before=10 -> after may fall to 8.
+        required = min(
+            target,
+            before_achieved.get(
+                muscle,
+                0.0,
+            ),
+        )
+
+        if (
+            after_achieved.get(
+                muscle,
+                0.0,
+            )
+            + 1e-9
+            < required
+        ):
+            return False
+
+    return True
+
+
+def _merge_redundant_one_set_fragments(
+    session: SessionExercisePlan,
+    exercises: list[FittedExercise],
+    available_seconds: int,
+) -> list[FittedExercise]:
+
+    merged = list(
+        exercises
+    )
+
+    while True:
+        changed = False
+
+        for fragment_index, fragment in enumerate(
+            merged
+        ):
+            if fragment.sets != 1:
+                continue
+
+            fragment_candidate = (
+                fragment
+                .exercise
+                .exercise
+            )
+
+            primary_muscle = (
+                fragment_candidate
+                .primary_muscle
+            )
+
+            donor_candidates = []
+
+            for donor_index, donor in enumerate(
+                merged
+            ):
+                if (
+                    donor_index
+                    == fragment_index
+                    or donor.sets < 2
+                ):
+                    continue
+
+                donor_candidate = (
+                    donor
+                    .exercise
+                    .exercise
+                )
+
+                # Only merge into an exercise
+                # that still trains the fragment's
+                # primary muscle.
+                if (
+                    donor_candidate
+                    .contribution_for(
+                        primary_muscle
+                    )
+                    <= 0
+                ):
+                    continue
+
+                simulated = list(
+                    merged
+                )
+
+                simulated[
+                    donor_index
+                ] = FittedExercise(
+                    exercise=(
+                        donor.exercise
+                    ),
+                    sets=(
+                        donor.sets + 1
+                    ),
+                )
+
+                simulated.pop(
+                    fragment_index
+                )
+
+                if (
+                    _session_seconds(
+                        simulated
+                    )
+                    > available_seconds
+                ):
+                    continue
+
+                if not (
+                    _coverage_not_worse_after_rebalance(
+                        session,
+                        merged,
+                        simulated,
+                    )
+                ):
+                    continue
+
+                donor_candidates.append(
+                    (
+                        donor_candidate
+                        .contribution_for(
+                            primary_muscle
+                        ),
+                        donor.sets,
+                        donor_index,
+                        simulated,
+                    )
+                )
+
+            if not donor_candidates:
+                continue
+
+            # Prefer the donor with the strongest
+            # contribution to the fragment's
+            # primary muscle, then the exercise
+            # already carrying more sets.
+            donor_candidates.sort(
+                key=lambda item: (
+                    item[0],
+                    item[1],
+                ),
+                reverse=True,
+            )
+
+            merged = (
+                donor_candidates[
+                    0
+                ][3]
+            )
+
+            changed = True
+            break
+
+        if not changed:
+            break
+
+    return merged
+
+
+
 def _rebalance_one_set_fragments(
     exercises: list[FittedExercise],
     available_seconds: int,
@@ -668,6 +859,14 @@ def _trim_session(
     rebalanced_exercises = (
         _rebalance_one_set_fragments(
             exercises,
+            available_seconds,
+        )
+    )
+
+    rebalanced_exercises = (
+        _merge_redundant_one_set_fragments(
+            session,
+            rebalanced_exercises,
             available_seconds,
         )
     )
