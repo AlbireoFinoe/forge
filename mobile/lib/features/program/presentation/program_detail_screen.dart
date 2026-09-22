@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/weekdays.dart';
+import '../../../core/theme/forge_theme.dart';
 import '../../workout/data/workout_models.dart';
 import '../../workout/data/workout_repository.dart';
 import '../../workout/presentation/workout_controller.dart';
@@ -24,7 +25,7 @@ class _ProgramDetailScreenState extends ConsumerState<ProgramDetailScreen> {
   Future<void> _openWorkout() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) {
+        builder: (_) {
           return const WorkoutSessionScreen();
         },
       ),
@@ -84,33 +85,41 @@ class _ProgramDetailScreenState extends ConsumerState<ProgramDetailScreen> {
     final currentWorkout = workoutState.value?.currentWorkout;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Training Program')),
+      appBar: AppBar(title: const Text('TRAINING PROGRAM')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(
+            ForgeSpacing.xl,
+            ForgeSpacing.lg,
+            ForgeSpacing.xl,
+            ForgeSpacing.xxl,
+          ),
           children: [
             _ProgramHeader(program: program),
-            const SizedBox(height: 24),
-            Text(
-              'Weekly Schedule',
-              style: Theme.of(context).textTheme.titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
+
+            const SizedBox(height: ForgeSpacing.xxl),
+
+            _SectionHeader(
+              title: 'WEEKLY PLAN',
+              trailing: '${program.days.length} DAYS',
             ),
-            const SizedBox(height: 12),
-            for (final day in days)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ProgramDayCard(
-                  day: day,
-                  currentWorkout: currentWorkout,
-                  isStarting: _startingDayId == day.id,
-                  startBlocked: _startingDayId != null,
-                  onStart: () {
-                    _startWorkout(day);
-                  },
-                  onResume: _openWorkout,
-                ),
+
+            const SizedBox(height: ForgeSpacing.md),
+
+            for (var index = 0; index < days.length; index++) ...[
+              _ProgramDayCard(
+                day: days[index],
+                currentWorkout: currentWorkout,
+                isStarting: _startingDayId == days[index].id,
+                startBlocked: _startingDayId != null,
+                onStart: () {
+                  _startWorkout(days[index]);
+                },
+                onResume: _openWorkout,
               ),
+              if (index < days.length - 1)
+                const SizedBox(height: ForgeSpacing.md),
+            ],
           ],
         ),
       ),
@@ -125,53 +134,145 @@ class _ProgramHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    program.name,
-                    style: Theme.of(context).textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.bold),
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.xl),
+      decoration: BoxDecoration(
+        color: ForgeColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _goalLabel(program.goal).toUpperCase(),
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: ForgeColors.primary,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    Text(
+                      program.name,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w900),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: ForgeColors.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  'V${program.versionNumber}',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: ForgeColors.primary,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                Chip(label: Text('v${program.versionNumber}')),
-              ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: ForgeSpacing.xl),
+
+          Row(
+            children: [
+              Expanded(
+                child: _HeaderMetric(
+                  value: '${program.days.length}',
+                  label: 'DAYS / WEEK',
+                ),
+              ),
+
+              Container(width: 1, height: 44, color: ForgeColors.outline),
+
+              Expanded(
+                child: _HeaderMetric(
+                  value: '${program.totalExercises}',
+                  label: 'EXERCISES',
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: ForgeSpacing.xl),
+
+          Container(
+            padding: const EdgeInsets.all(ForgeSpacing.md),
+            decoration: BoxDecoration(
+              color: ForgeColors.surface,
+              borderRadius: BorderRadius.circular(ForgeRadius.md),
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            child: Row(
               children: [
-                Chip(
-                  avatar: const Icon(Icons.flag_outlined, size: 18),
-                  label: Text(_goalLabel(program.goal)),
+                const Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 18,
+                  color: ForgeColors.textMuted,
                 ),
-                Chip(
-                  avatar: const Icon(Icons.calendar_today_outlined, size: 18),
-                  label: Text('${program.days.length} days'),
-                ),
-                Chip(
-                  avatar: const Icon(Icons.fitness_center, size: 18),
-                  label: Text('${program.totalExercises} exercises'),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Generated with FORGE '
+                    '${program.generatorVersion}',
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: ForgeColors.textSecondary),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Generated with FORGE '
-              '${program.generatorVersion}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _HeaderMetric extends StatelessWidget {
+  const _HeaderMetric({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleLarge
+              ?.copyWith(fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: ForgeColors.textMuted,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.7,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -187,6 +288,7 @@ class _ProgramDayCard extends StatelessWidget {
   });
 
   final ProgramDayData day;
+
   final WorkoutSessionData? currentWorkout;
 
   final bool isStarting;
@@ -201,85 +303,186 @@ class _ProgramDayCard extends StatelessWidget {
 
     final anotherWorkoutIsActive = currentWorkout != null && !isCurrentWorkout;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      child: ExpansionTile(
-        initiallyExpanded: isCurrentWorkout || day.dayOrder == 1,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                day.name,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
+    final totalSets = day.exercises.fold<int>(
+      0,
+      (sum, exercise) => sum + exercise.sets,
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isCurrentWorkout
+            ? ForgeColors.primary.withValues(alpha: 0.05)
+            : ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(
+          color: isCurrentWorkout
+              ? ForgeColors.primary.withValues(alpha: 0.24)
+              : ForgeColors.outline,
+        ),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: isCurrentWorkout || day.dayOrder == 1,
+          tilePadding: const EdgeInsets.fromLTRB(
+            ForgeSpacing.lg,
+            ForgeSpacing.md,
+            ForgeSpacing.lg,
+            ForgeSpacing.md,
+          ),
+          childrenPadding: const EdgeInsets.fromLTRB(
+            ForgeSpacing.lg,
+            0,
+            ForgeSpacing.lg,
+            ForgeSpacing.lg,
+          ),
+          iconColor: isCurrentWorkout
+              ? ForgeColors.primary
+              : ForgeColors.textSecondary,
+          collapsedIconColor: ForgeColors.textMuted,
+          title: _DayHeader(day: day, isCurrentWorkout: isCurrentWorkout),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 7),
+            child: Text(
+              '${weekdayLabel(day.dayOfWeek)}'
+              ' \u2022 '
+              '${day.estimatedDurationMinutes} min'
+              ' \u2022 '
+              '${day.exercises.length} exercises'
+              ' \u2022 '
+              '$totalSets sets',
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: ForgeColors.textSecondary),
             ),
+          ),
+          children: [
+            const Divider(color: ForgeColors.outline),
+
+            const SizedBox(height: 4),
+
+            for (var index = 0; index < day.exercises.length; index++) ...[
+              _ExerciseRow(exercise: day.exercises[index]),
+              if (index < day.exercises.length - 1)
+                const Divider(height: 1, color: ForgeColors.outline),
+            ],
+
+            const SizedBox(height: ForgeSpacing.lg),
+
             if (isCurrentWorkout)
-              const Padding(
-                padding: EdgeInsets.only(left: 8),
-                child: Chip(
-                  avatar: Icon(Icons.play_arrow, size: 18),
-                  label: Text('In Progress'),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onResume,
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 13),
+                    child: Text('RESUME WORKOUT'),
+                  ),
+                ),
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: anotherWorkoutIsActive || startBlocked
+                      ? null
+                      : onStart,
+                  icon: isStarting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.play_arrow_rounded),
+                  label: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    child: Text(
+                      isStarting
+                          ? 'STARTING...'
+                          : anotherWorkoutIsActive
+                          ? 'WORKOUT ACTIVE'
+                          : 'START WORKOUT',
+                    ),
+                  ),
                 ),
               ),
           ],
         ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
+      ),
+    );
+  }
+}
+
+class _DayHeader extends StatelessWidget {
+  const _DayHeader({required this.day, required this.isCurrentWorkout});
+
+  final ProgramDayData day;
+  final bool isCurrentWorkout;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isCurrentWorkout
+                ? ForgeColors.primary.withValues(alpha: 0.10)
+                : ForgeColors.surfaceRaised,
+            borderRadius: BorderRadius.circular(ForgeRadius.sm),
+          ),
           child: Text(
-            '${weekdayLabel(day.dayOfWeek)}'
-            ' \u2022 '
-            '${day.estimatedDurationMinutes} min'
-            ' \u2022 '
-            '${day.exercises.length} exercises',
+            _shortWeekday(day.dayOfWeek),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: isCurrentWorkout
+                  ? ForgeColors.primary
+                  : ForgeColors.textSecondary,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.6,
+            ),
           ),
         ),
-        children: [
-          const Divider(),
-          for (final exercise in day.exercises)
-            _ExerciseRow(exercise: exercise),
-          const SizedBox(height: 12),
-          if (isCurrentWorkout)
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: onResume,
-                icon: const Icon(Icons.play_arrow),
-                label: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Text('Resume Workout'),
-                ),
-              ),
-            )
-          else
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: anotherWorkoutIsActive || startBlocked
-                    ? null
-                    : onStart,
-                icon: isStarting
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.play_arrow),
-                label: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text(
-                    isStarting
-                        ? 'Starting...'
-                        : anotherWorkoutIsActive
-                        ? 'Another Workout Is Active'
-                        : 'Start Workout',
-                  ),
-                ),
-              ),
-            ),
-        ],
+
+        const SizedBox(width: ForgeSpacing.md),
+
+        Expanded(
+          child: Text(
+            day.name,
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ),
+
+        if (isCurrentWorkout)
+          const Padding(
+            padding: EdgeInsets.only(left: 8),
+            child: _CurrentBadge(),
+          ),
+      ],
+    );
+  }
+}
+
+class _CurrentBadge extends StatelessWidget {
+  const _CurrentBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: ForgeColors.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        'IN PROGRESS',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: ForgeColors.primary,
+          fontWeight: FontWeight.w800,
+          fontSize: 9,
+        ),
       ),
     );
   }
@@ -299,38 +502,83 @@ class _ExerciseRow extends StatelessWidget {
               '${exercise.maxReps}';
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: ForgeSpacing.md),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(radius: 18, child: Text('${exercise.exerciseOrder}')),
-          const SizedBox(width: 14),
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: ForgeColors.surfaceRaised,
+              borderRadius: BorderRadius.circular(ForgeRadius.sm),
+              border: Border.all(color: ForgeColors.outline),
+            ),
+            child: Text(
+              exercise.exerciseOrder.toString().padLeft(2, '0'),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: ForgeColors.primary,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+
+          const SizedBox(width: ForgeSpacing.md),
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   exercise.exerciseName,
-                  style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
                 ),
-                const SizedBox(height: 4),
+
+                const SizedBox(height: 5),
+
                 Text(
-                  '${exercise.sets} sets '
-                  '\u00d7 '
-                  '$reps reps',
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${exercise.restSeconds} '
-                  'sec rest',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  '${exercise.sets} \u00d7 '
+                  '$reps reps'
+                  ' \u2022 '
+                  '${exercise.restSeconds}s rest',
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: ForgeColors.textSecondary),
                 ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, required this.trailing});
+
+  final String title;
+  final String trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleSmall
+              ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: 0.8),
+        ),
+        const Spacer(),
+        Text(
+          trailing,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: ForgeColors.textMuted,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -350,4 +598,14 @@ String _goalLabel(String value) {
     default:
       return value;
   }
+}
+
+String _shortWeekday(int value) {
+  final label = weekdayLabel(value);
+
+  if (label.length <= 3) {
+    return label.toUpperCase();
+  }
+
+  return label.substring(0, 3).toUpperCase();
 }
