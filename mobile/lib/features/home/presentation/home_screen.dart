@@ -7,7 +7,6 @@ import '../../auth/data/auth_user.dart';
 import '../../program/data/program_models.dart';
 import '../../program/data/program_repository.dart';
 import '../../program/presentation/program_controller.dart';
-import '../../program/presentation/program_detail_screen.dart';
 import '../../workout/data/workout_models.dart';
 import '../../workout/data/workout_repository.dart';
 import '../../workout/presentation/workout_controller.dart';
@@ -305,42 +304,12 @@ class _HomeContent extends StatelessWidget {
 
                     const SizedBox(height: ForgeSpacing.xxl),
 
-                    _ActiveProgramPanel(
-                      program: program,
-                      onViewProgram: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (context) {
-                              return ProgramDetailScreen(program: program);
-                            },
-                          ),
-                        );
-                      },
-                    ),
+                    _ActiveProgramPanel(program: program),
 
                     if (state.lastGeneration?.warnings.isNotEmpty ?? false) ...[
                       const SizedBox(height: ForgeSpacing.lg),
                       _GenerationWarningBanner(
                         generation: state.lastGeneration!,
-                      ),
-                    ],
-
-                    if (!program.isOutdated) ...[
-                      const SizedBox(height: ForgeSpacing.xl),
-                      Center(
-                        child: TextButton.icon(
-                          onPressed: isGenerating ? null : onRegenerate,
-                          icon: const Icon(Icons.auto_awesome, size: 18),
-                          label: isGenerating
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text('Generate new program'),
-                        ),
                       ),
                     ],
                   ],
@@ -829,13 +798,9 @@ class _WeeklyProgressSection extends StatelessWidget {
 }
 
 class _ActiveProgramPanel extends StatelessWidget {
-  const _ActiveProgramPanel({
-    required this.program,
-    required this.onViewProgram,
-  });
+  const _ActiveProgramPanel({required this.program});
 
   final ProgramDetailData program;
-  final VoidCallback onViewProgram;
 
   @override
   Widget build(BuildContext context) {
@@ -892,14 +857,6 @@ class _ActiveProgramPanel extends StatelessWidget {
             'Generator '
             '${program.generatorVersion}',
             style: Theme.of(context).textTheme.bodySmall,
-          ),
-
-          const SizedBox(height: ForgeSpacing.lg),
-
-          OutlinedButton.icon(
-            onPressed: onViewProgram,
-            icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-            label: const Text('View Program'),
           ),
         ],
       ),
