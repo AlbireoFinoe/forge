@@ -1327,6 +1327,8 @@ class _SetLogSheetState extends State<_SetLogSheet> {
 
     final rpeText = _rpeController.text.trim();
 
+    FocusScope.of(context).unfocus();
+
     Navigator.of(context).pop(
       _SetLogResult(
         actualReps: int.parse(_repsController.text.trim()),
@@ -1349,71 +1351,71 @@ class _SetLogSheetState extends State<_SetLogSheet> {
 
     final isEditing = widget.workoutSet.isCompleted;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + bottomInset),
+    return Container(
+      decoration: const BoxDecoration(
+        color: ForgeColors.surface,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(ForgeRadius.xl),
+        ),
+      ),
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            ForgeSpacing.xl,
+            ForgeSpacing.sm,
+            ForgeSpacing.xl,
+            ForgeSpacing.xl + bottomInset,
+          ),
           child: Form(
             key: _formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${widget.exercise.exerciseName} '
-                  '\u2014 Set '
-                  '${widget.workoutSet.setNumber}',
-                  style: Theme.of(context).textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                _SetLogHeader(
+                  exerciseName: widget.exercise.exerciseName,
+                  setNumber: widget.workoutSet.setNumber,
+                  isEditing: isEditing,
                 ),
 
-                const SizedBox(height: 6),
+                const SizedBox(height: ForgeSpacing.lg),
 
-                Text(
-                  'Target $targetReps reps '
-                  '\u2022 '
-                  '${widget.exercise.targetRestSeconds} '
-                  'sec rest',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                _SetTargetPanel(
+                  targetReps: targetReps,
+                  restSeconds: widget.exercise.targetRestSeconds,
                 ),
 
-                const SizedBox(height: 12),
+                if (!isEditing && widget.previousSet != null) ...[
+                  const SizedBox(height: ForgeSpacing.md),
+                  _PreviousSetPanel(set: widget.previousSet!),
+                ],
 
-                if (!isEditing && widget.previousSet != null)
-                  Text(
-                    'Weight and reps copied from '
-                    'Set '
-                    '${widget.previousSet!.setNumber}. '
-                    'Adjust them if this set was '
-                    'different.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  )
-                else if (!isEditing)
-                  Text(
-                    'Reps are prefilled from the '
-                    'target. Enter what you actually '
-                    'performed.',
-                    style: Theme.of(context).textTheme.bodySmall,
+                const SizedBox(height: ForgeSpacing.xl),
+
+                Text(
+                  'PERFORMANCE',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: ForgeColors.textSecondary,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
                   ),
+                ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: ForgeSpacing.md),
 
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: TextFormField(
+                      child: _SetLogField(
                         controller: _weightController,
+                        label: 'WEIGHT',
+                        suffixText: 'kg',
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
                         textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: 'Weight',
-                          suffixText: 'kg',
-                          border: OutlineInputBorder(),
-                        ),
                         validator: (value) {
                           final input = value?.trim() ?? '';
 
@@ -1424,7 +1426,7 @@ class _SetLogSheetState extends State<_SetLogSheet> {
                           final weight = double.tryParse(input);
 
                           if (weight == null || weight < 0) {
-                            return 'Invalid weight';
+                            return 'Invalid';
                           }
 
                           return null;
@@ -1432,22 +1434,19 @@ class _SetLogSheetState extends State<_SetLogSheet> {
                       ),
                     ),
 
-                    const SizedBox(width: 12),
+                    const SizedBox(width: ForgeSpacing.md),
 
                     Expanded(
-                      child: TextFormField(
+                      child: _SetLogField(
                         controller: _repsController,
+                        label: 'REPS',
                         keyboardType: TextInputType.number,
                         textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: 'Reps',
-                          border: OutlineInputBorder(),
-                        ),
                         validator: (value) {
                           final reps = int.tryParse(value?.trim() ?? '');
 
                           if (reps == null || reps < 0) {
-                            return 'Invalid reps';
+                            return 'Invalid';
                           }
 
                           return null;
@@ -1457,10 +1456,12 @@ class _SetLogSheetState extends State<_SetLogSheet> {
                   ],
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: ForgeSpacing.lg),
 
-                TextFormField(
+                _SetLogField(
                   controller: _rpeController,
+                  label: 'RPE',
+                  hintText: 'Optional',
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
@@ -1468,12 +1469,6 @@ class _SetLogSheetState extends State<_SetLogSheet> {
                   onFieldSubmitted: (_) {
                     _submit();
                   },
-                  decoration: const InputDecoration(
-                    labelText: 'RPE',
-                    hintText: 'Optional',
-                    helperText: 'How hard was this set? 1\u201310',
-                    border: OutlineInputBorder(),
-                  ),
                   validator: (value) {
                     final input = value?.trim() ?? '';
 
@@ -1484,33 +1479,58 @@ class _SetLogSheetState extends State<_SetLogSheet> {
                     final rpe = double.tryParse(input);
 
                     if (rpe == null || rpe < 1 || rpe > 10) {
-                      return 'RPE must be 1\u201310';
+                      return 'RPE must be 1?10';
                     }
 
                     return null;
                   },
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 8),
+
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.speed_rounded,
+                      size: 16,
+                      color: ForgeColors.textMuted,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Rate how hard the set felt '
+                        'from 1 to 10.',
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: ForgeColors.textMuted),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: ForgeSpacing.xl),
 
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: _submit,
-                    icon: Icon(isEditing ? Icons.edit_outlined : Icons.check),
+                    icon: Icon(
+                      isEditing ? Icons.edit_rounded : Icons.check_rounded,
+                    ),
                     label: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      child: Text(isEditing ? 'Update Set' : 'Complete Set'),
+                      child: Text(isEditing ? 'UPDATE SET' : 'COMPLETE SET'),
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 8),
+                const SizedBox(height: ForgeSpacing.sm),
 
                 SizedBox(
                   width: double.infinity,
                   child: TextButton(
                     onPressed: () {
+                      FocusScope.of(context).unfocus();
+
                       Navigator.of(context).pop();
                     },
                     child: const Text('Cancel'),
@@ -1521,6 +1541,261 @@ class _SetLogSheetState extends State<_SetLogSheet> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SetLogHeader extends StatelessWidget {
+  const _SetLogHeader({
+    required this.exerciseName,
+    required this.setNumber,
+    required this.isEditing,
+  });
+
+  final String exerciseName;
+  final int setNumber;
+  final bool isEditing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              isEditing ? 'EDIT SET' : 'LOG SET',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: ForgeColors.primary,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: ForgeColors.primary.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(99),
+              ),
+              child: Text(
+                'SET $setNumber',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: ForgeColors.primary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 8),
+
+        Text(
+          exerciseName,
+          style: Theme.of(context).textTheme.headlineSmall
+              ?.copyWith(fontWeight: FontWeight.w800),
+        ),
+      ],
+    );
+  }
+}
+
+class _SetTargetPanel extends StatelessWidget {
+  const _SetTargetPanel({required this.targetReps, required this.restSeconds});
+
+  final String targetReps;
+  final int restSeconds;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.md),
+      decoration: BoxDecoration(
+        color: ForgeColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(ForgeRadius.md),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _SetTargetMetric(
+              label: 'TARGET',
+              value: '$targetReps reps',
+              icon: Icons.repeat_rounded,
+            ),
+          ),
+
+          Container(width: 1, height: 36, color: ForgeColors.outline),
+
+          Expanded(
+            child: _SetTargetMetric(
+              label: 'REST',
+              value: '${restSeconds}s',
+              icon: Icons.timer_outlined,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SetTargetMetric extends StatelessWidget {
+  const _SetTargetMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 18, color: ForgeColors.textSecondary),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: ForgeColors.textMuted,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _PreviousSetPanel extends StatelessWidget {
+  const _PreviousSetPanel({required this.set});
+
+  final WorkoutSetData set;
+
+  @override
+  Widget build(BuildContext context) {
+    final values = <String>[];
+
+    if (set.weightKg != null) {
+      values.add('${_formatNumber(set.weightKg!)} kg');
+    }
+
+    if (set.actualReps != null) {
+      values.add('${set.actualReps} reps');
+    }
+
+    if (set.rpe != null) {
+      values.add('RPE ${_formatNumber(set.rpe!)}');
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.md),
+      decoration: BoxDecoration(
+        color: ForgeColors.primary.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(ForgeRadius.md),
+        border: Border.all(color: ForgeColors.primary.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: ForgeColors.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(ForgeRadius.sm),
+            ),
+            child: const Icon(
+              Icons.history_rounded,
+              size: 19,
+              color: ForgeColors.primary,
+            ),
+          ),
+
+          const SizedBox(width: ForgeSpacing.md),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'PREVIOUS SET',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: ForgeColors.textSecondary,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  values.isEmpty ? 'Completed' : values.join(' ? '),
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SetLogField extends StatelessWidget {
+  const _SetLogField({
+    required this.controller,
+    required this.label,
+    required this.keyboardType,
+    required this.textInputAction,
+    required this.validator,
+    this.suffixText,
+    this.hintText,
+    this.onFieldSubmitted,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final TextInputType keyboardType;
+  final TextInputAction textInputAction;
+  final String? suffixText;
+  final String? hintText;
+
+  final String? Function(String?) validator;
+  final ValueChanged<String>? onFieldSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      onFieldSubmitted: onFieldSubmitted,
+      style: Theme.of(context).textTheme.titleMedium
+          ?.copyWith(fontWeight: FontWeight.w700),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hintText,
+        suffixText: suffixText,
+        filled: true,
+        fillColor: ForgeColors.surfaceRaised,
+      ),
+      validator: validator,
     );
   }
 }
