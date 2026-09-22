@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../../core/api/api_client.dart';
 import 'exercise_models.dart';
+import 'exercise_summary_data.dart';
 
 class ExerciseException implements Exception {
   const ExerciseException(this.message, {this.statusCode});
@@ -18,6 +19,29 @@ class ExerciseRepository {
 
   final ApiClient _apiClient;
 
+  Future<List<ExerciseSummaryData>> getExercises({
+    String? muscle,
+    String? search,
+  }) async {
+    try {
+      final response = await _apiClient.dio.get<dynamic>(
+        '/exercises',
+        queryParameters: {
+          if (muscle != null && muscle.trim().isNotEmpty)
+            'muscle': muscle.trim().toUpperCase(),
+          if (search != null && search.trim().isNotEmpty)
+            'search': search.trim(),
+        },
+      );
+
+      return _asJsonList(response.data)
+          .map(ExerciseSummaryData.fromJson)
+          .toList(growable: false);
+    } on DioException catch (error) {
+      throw _toExerciseException(error);
+    }
+  }
+
   Future<ExerciseDetailData> getExerciseById(String exerciseId) async {
     try {
       final response = await _apiClient.dio.get<dynamic>(
@@ -28,6 +52,28 @@ class ExerciseRepository {
     } on DioException catch (error) {
       throw _toExerciseException(error);
     }
+  }
+
+  List<Map<String, dynamic>> _asJsonList(dynamic value) {
+    if (value is! List) {
+      throw const ExerciseException('Unexpected response from FORGE server.');
+    }
+
+    return value
+        .map((item) {
+          if (item is Map<String, dynamic>) {
+            return item;
+          }
+
+          if (item is Map) {
+            return Map<String, dynamic>.from(item);
+          }
+
+          throw const ExerciseException(
+            'Unexpected response from FORGE server.',
+          );
+        })
+        .toList(growable: false);
   }
 
   Map<String, dynamic> _asJsonObject(dynamic value) {
@@ -80,6 +126,6 @@ class ExerciseRepository {
       return 'Connection to FORGE server timed out.';
     }
 
-    return 'Could not load exercise details.';
+    return 'Could not load exercise data.';
   }
 }

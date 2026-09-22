@@ -7,6 +7,7 @@ import '../../auth/data/auth_user.dart';
 import '../../program/data/program_models.dart';
 import '../../program/data/program_repository.dart';
 import '../../program/presentation/program_controller.dart';
+import '../../program/presentation/program_detail_screen.dart';
 import '../../workout/data/workout_models.dart';
 import '../../workout/data/workout_repository.dart';
 import '../../workout/presentation/workout_controller.dart';
@@ -297,14 +298,25 @@ class _HomeContent extends StatelessWidget {
 
                     const SizedBox(height: ForgeSpacing.xxl),
 
-                    _WeeklyProgressSection(
+                    _AtAGlanceSection(
                       program: program,
                       workoutState: workoutState,
                     ),
 
                     const SizedBox(height: ForgeSpacing.xxl),
 
-                    _ActiveProgramPanel(program: program),
+                    _UpNextSection(
+                      program: program,
+                      onOpenProgram: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) {
+                              return ProgramDetailScreen(program: program);
+                            },
+                          ),
+                        );
+                      },
+                    ),
 
                     if (state.lastGeneration?.warnings.isNotEmpty ?? false) ...[
                       const SizedBox(height: ForgeSpacing.lg),
@@ -699,8 +711,277 @@ class _StatusPill extends StatelessWidget {
   }
 }
 
-class _WeeklyProgressSection extends StatelessWidget {
-  const _WeeklyProgressSection({
+class _UpNextSection extends StatelessWidget {
+  const _UpNextSection({required this.program, required this.onOpenProgram});
+
+  final ProgramDetailData program;
+  final VoidCallback onOpenProgram;
+
+  ProgramDayData? _nextSession() {
+    if (program.days.isEmpty) {
+      return null;
+    }
+
+    final today = DateTime.now().weekday;
+
+    ProgramDayData? result;
+    var smallestOffset = 8;
+
+    for (final day in program.days) {
+      var offset = (day.dayOfWeek - today + 7) % 7;
+
+      if (offset == 0) {
+        offset = 7;
+      }
+
+      if (offset < smallestOffset) {
+        smallestOffset = offset;
+        result = day;
+      }
+    }
+
+    return result;
+  }
+
+  int _daysUntil(ProgramDayData day) {
+    final today = DateTime.now().weekday;
+
+    var offset = (day.dayOfWeek - today + 7) % 7;
+
+    if (offset == 0) {
+      offset = 7;
+    }
+
+    return offset;
+  }
+
+  String _dayCaption(ProgramDayData day) {
+    final offset = _daysUntil(day);
+
+    if (offset == 1) {
+      return 'TOMORROW';
+    }
+
+    return weekdayLabel(day.dayOfWeek).toUpperCase();
+  }
+
+  String _shortDay(ProgramDayData day) {
+    final value = weekdayLabel(day.dayOfWeek);
+
+    if (value.length <= 3) {
+      return value.toUpperCase();
+    }
+
+    return value.substring(0, 3).toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final next = _nextSession();
+
+    if (next == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'UP NEXT',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: ForgeColors.textSecondary,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.1,
+          ),
+        ),
+
+        const SizedBox(height: ForgeSpacing.md),
+
+        Material(
+          color: ForgeColors.surface,
+          borderRadius: BorderRadius.circular(ForgeRadius.lg),
+          child: InkWell(
+            onTap: onOpenProgram,
+            borderRadius: BorderRadius.circular(ForgeRadius.lg),
+            child: Container(
+              padding: const EdgeInsets.all(ForgeSpacing.lg),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(ForgeRadius.lg),
+                border: Border.all(color: ForgeColors.outline),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: ForgeColors.surfaceRaised,
+                      borderRadius: BorderRadius.circular(ForgeRadius.md),
+                    ),
+                    child: Text(
+                      _shortDay(next),
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: ForgeColors.primary,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: ForgeSpacing.md),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _dayCaption(next),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: ForgeColors.textMuted,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                              ),
+                        ),
+
+                        const SizedBox(height: 4),
+
+                        Text(
+                          next.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+
+                        const SizedBox(height: 4),
+
+                        Text(
+                          '${next.estimatedDurationMinutes} min'
+                          ' ? '
+                          '${next.exercises.length} exercises',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: ForgeColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(width: ForgeSpacing.sm),
+
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: ForgeColors.textMuted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AtAGlanceSection extends StatefulWidget {
+  const _AtAGlanceSection({required this.program, required this.workoutState});
+
+  final ProgramDetailData program;
+  final WorkoutState workoutState;
+
+  @override
+  State<_AtAGlanceSection> createState() => _AtAGlanceSectionState();
+}
+
+class _AtAGlanceSectionState extends State<_AtAGlanceSection> {
+  late final PageController _pageController;
+
+  int _page = 0;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _pageController = PageController(viewportFraction: 0.9);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'AT A GLANCE',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: ForgeColors.textSecondary,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.1,
+          ),
+        ),
+
+        const SizedBox(height: ForgeSpacing.md),
+
+        SizedBox(
+          height: 184,
+          child: PageView(
+            controller: _pageController,
+            padEnds: false,
+            onPageChanged: (value) {
+              setState(() {
+                _page = value;
+              });
+            },
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: ForgeSpacing.md),
+                child: _WeeklySnapshotCard(
+                  program: widget.program,
+                  workoutState: widget.workoutState,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: ForgeSpacing.md),
+                child: _ProgramSnapshotCard(program: widget.program),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: ForgeSpacing.md),
+
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var index = 0; index < 2; index++) ...[
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: _page == index ? 18 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: _page == index
+                      ? ForgeColors.primary
+                      : ForgeColors.outlineStrong,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              if (index == 0) const SizedBox(width: 6),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _WeeklySnapshotCard extends StatelessWidget {
+  const _WeeklySnapshotCard({
     required this.program,
     required this.workoutState,
   });
@@ -746,70 +1027,83 @@ class _WeeklyProgressSection extends StatelessWidget {
 
     final progress = totalDays == 0 ? 0.0 : completedCount / totalDays;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: Text(
-                'THIS WEEK',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: ForgeColors.textSecondary,
-                  letterSpacing: 1.1,
-                  fontWeight: FontWeight.w800,
+    final remaining = totalDays > completedCount
+        ? totalDays - completedCount
+        : 0;
+
+    return _SnapshotCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'WEEKLY PROGRESS',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: ForgeColors.textSecondary,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1,
+            ),
+          ),
+
+          const Spacer(),
+
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$completedCount / $totalDays',
+                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                  color: ForgeColors.primary,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-            ),
-            Text(
-              '$completedCount / $totalDays',
-              style: Theme.of(context).textTheme.headlineSmall
-                  ?.copyWith(color: ForgeColors.primary),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: ForgeSpacing.md),
-
-        ClipRRect(
-          borderRadius: BorderRadius.circular(99),
-          child: LinearProgressIndicator(
-            value: progress,
-            minHeight: 8,
-            backgroundColor: ForgeColors.surfaceRaised,
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Text(
+                  'SESSIONS',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: ForgeColors.textMuted,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
 
-        const SizedBox(height: ForgeSpacing.md),
+          const SizedBox(height: ForgeSpacing.md),
 
-        Text(
-          completedCount == totalDays && totalDays > 0
-              ? 'Weekly training complete.'
-              : '$completedCount of '
-                    '$totalDays scheduled '
-                    'workouts completed.',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-      ],
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 7,
+              backgroundColor: ForgeColors.surfaceSoft,
+            ),
+          ),
+
+          const SizedBox(height: ForgeSpacing.sm),
+
+          Text(
+            remaining == 0 && totalDays > 0
+                ? 'Weekly training complete.'
+                : '$remaining remaining this week',
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: ForgeColors.textSecondary),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _ActiveProgramPanel extends StatelessWidget {
-  const _ActiveProgramPanel({required this.program});
+class _ProgramSnapshotCard extends StatelessWidget {
+  const _ProgramSnapshotCard({required this.program});
 
   final ProgramDetailData program;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(ForgeSpacing.lg),
-      decoration: BoxDecoration(
-        color: ForgeColors.surface,
-        borderRadius: BorderRadius.circular(ForgeRadius.lg),
-        border: Border.all(color: ForgeColors.outline),
-      ),
+    return _SnapshotCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -820,45 +1114,78 @@ class _ActiveProgramPanel extends StatelessWidget {
                   'CURRENT PROGRAM',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: ForgeColors.textSecondary,
-                    letterSpacing: 1.1,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: ForgeColors.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  'V${program.versionNumber}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: ForgeColors.primary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-              _StatusPill(
-                icon: Icons.bolt_rounded,
-                label: 'V${program.versionNumber}',
-                color: ForgeColors.primary,
-              ),
             ],
           ),
 
-          const SizedBox(height: ForgeSpacing.lg),
+          const Spacer(),
 
-          Text(program.name, style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            program.name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
 
           const SizedBox(height: 6),
 
           Text(
-            '${_goalLabel(program.goal)} '
-            '\u2022 '
-            '${program.days.length} '
-            'training days',
-            style: Theme.of(context).textTheme.bodyMedium,
+            '${_goalLabel(program.goal)}'
+            ' ? '
+            '${program.days.length} days/week',
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: ForgeColors.textSecondary),
           ),
 
           const SizedBox(height: 4),
 
           Text(
             '${program.totalExercises} '
-            'exercise assignments '
-            '\u2022 '
-            'Generator '
-            '${program.generatorVersion}',
-            style: Theme.of(context).textTheme.bodySmall,
+            'exercise assignments',
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: ForgeColors.textMuted),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SnapshotCard extends StatelessWidget {
+  const _SnapshotCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.lg),
+      decoration: BoxDecoration(
+        color: ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      child: child,
     );
   }
 }

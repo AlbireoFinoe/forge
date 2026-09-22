@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/weekdays.dart';
 import '../../../core/theme/forge_theme.dart';
+import '../../exercise/presentation/exercise_library_screen.dart';
 import '../../program/data/program_models.dart';
 import '../../program/presentation/program_controller.dart';
 import '../../program/presentation/program_detail_screen.dart';
@@ -96,6 +97,20 @@ class TrainScreen extends ConsumerWidget {
               ),
               const SizedBox(height: ForgeSpacing.xl),
             ],
+
+            _ExerciseLibraryEntryCard(
+              onOpen: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) {
+                      return const ExerciseLibraryScreen();
+                    },
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: ForgeSpacing.xl),
 
             if (program != null) ...[
               _ProgramOverviewCard(
@@ -746,4 +761,80 @@ String _shortWeekday(int value) {
   }
 
   return label.substring(0, 3).toUpperCase();
+}
+
+class _ExerciseLibraryEntryCard extends StatelessWidget {
+  const _ExerciseLibraryEntryCard({required this.onOpen});
+
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: ForgeColors.surface,
+      borderRadius: BorderRadius.circular(ForgeRadius.md),
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(ForgeRadius.md),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: ForgeSpacing.lg,
+            vertical: ForgeSpacing.md,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(ForgeRadius.md),
+            border: Border.all(color: ForgeColors.outline),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: ForgeColors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(ForgeRadius.sm),
+                ),
+                child: const Icon(
+                  Icons.fitness_center_rounded,
+                  color: ForgeColors.primary,
+                  size: 21,
+                ),
+              ),
+
+              const SizedBox(width: ForgeSpacing.md),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'EXERCISE LIBRARY',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Browse exercises by '
+                      'primary muscle group.',
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: ForgeColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: ForgeSpacing.sm),
+
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: ForgeColors.textMuted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
