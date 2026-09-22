@@ -33,91 +33,12 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   Future<void> _editFullName(BuildContext context, WidgetRef ref) async {
-    final controller = TextEditingController(text: _displayName ?? '');
-
-    final formKey = GlobalKey<FormState>();
-
     final result = await showDialog<String>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Edit name'),
-          content: Form(
-            key: formKey,
-            child: TextFormField(
-              controller: controller,
-              autofocus: true,
-              keyboardType: TextInputType.name,
-              textCapitalization: TextCapitalization.words,
-              textInputAction: TextInputAction.done,
-              autofillHints: const [AutofillHints.name],
-              decoration: const InputDecoration(
-                labelText: 'Full Name',
-                hintText: 'e.g. Albireo Musyaffa Finoe',
-              ),
-              onFieldSubmitted: (_) {
-                if (formKey.currentState?.validate() ?? false) {
-                  final normalized = controller.text
-                      .trim()
-                      .split(RegExp(r'\s+'))
-                      .where((part) => part.isNotEmpty)
-                      .join(' ');
-
-                  Navigator.of(dialogContext).pop(normalized);
-                }
-              },
-              validator: (value) {
-                final normalized = (value ?? '')
-                    .trim()
-                    .split(RegExp(r'\s+'))
-                    .where((part) => part.isNotEmpty)
-                    .join(' ');
-
-                if (normalized.isEmpty) {
-                  return 'Name is required.';
-                }
-
-                if (normalized.length < 2) {
-                  return 'Name must contain at least 2 characters.';
-                }
-
-                if (normalized.length > 120) {
-                  return 'Name must not exceed 120 characters.';
-                }
-
-                return null;
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (!(formKey.currentState?.validate() ?? false)) {
-                  return;
-                }
-
-                final normalized = controller.text
-                    .trim()
-                    .split(RegExp(r'\s+'))
-                    .where((part) => part.isNotEmpty)
-                    .join(' ');
-
-                Navigator.of(dialogContext).pop(normalized);
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
+        return _EditNameDialog(initialName: _displayName ?? '');
       },
     );
-
-    controller.dispose();
 
     if (result == null || !context.mounted) {
       return;
@@ -252,6 +173,110 @@ class ProfileScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _EditNameDialog extends StatefulWidget {
+  const _EditNameDialog({required this.initialName});
+
+  final String initialName;
+
+  @override
+  State<_EditNameDialog> createState() => _EditNameDialogState();
+}
+
+class _EditNameDialogState extends State<_EditNameDialog> {
+  final _formKey = GlobalKey<FormState>();
+
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+
+    super.dispose();
+  }
+
+  String _normalizedName() {
+    return _controller.text
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .join(' ');
+  }
+
+  void _submit() {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+
+    Navigator.of(context).pop(_normalizedName());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit name'),
+      content: Form(
+        key: _formKey,
+        child: TextFormField(
+          controller: _controller,
+          autofocus: true,
+          keyboardType: TextInputType.name,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.done,
+          autofillHints: const [AutofillHints.name],
+          decoration: const InputDecoration(
+            labelText: 'Full Name',
+            hintText: 'e.g. Albireo Musyaffa Finoe',
+          ),
+          onFieldSubmitted: (_) {
+            _submit();
+          },
+          validator: (value) {
+            final normalized = (value ?? '')
+                .trim()
+                .split(RegExp(r'\s+'))
+                .where((part) => part.isNotEmpty)
+                .join(' ');
+
+            if (normalized.isEmpty) {
+              return 'Name is required.';
+            }
+
+            if (normalized.length < 2) {
+              return 'Name must contain at least 2 characters.';
+            }
+
+            if (normalized.length > 120) {
+              return 'Name must not exceed 120 characters.';
+            }
+
+            return null;
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            FocusScope.of(context).unfocus();
+
+            Navigator.of(context).pop();
+          },
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Save')),
+      ],
     );
   }
 }
