@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/weekdays.dart';
 import '../../../core/theme/forge_theme.dart';
+import '../../exercise/presentation/exercise_detail_sheet.dart';
 import '../../workout/data/workout_models.dart';
 import '../../workout/data/workout_repository.dart';
 import '../../workout/presentation/workout_controller.dart';
@@ -501,55 +502,93 @@ class _ExerciseRow extends StatelessWidget {
               '\u2013'
               '${exercise.maxReps}';
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: ForgeSpacing.md),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: ForgeColors.surfaceRaised,
-              borderRadius: BorderRadius.circular(ForgeRadius.sm),
-              border: Border.all(color: ForgeColors.outline),
-            ),
-            child: Text(
-              exercise.exerciseOrder.toString().padLeft(2, '0'),
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: ForgeColors.primary,
-                fontWeight: FontWeight.w900,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(ForgeRadius.md),
+        onTap: () {
+          showExerciseDetailSheet(
+            context,
+            exerciseId: exercise.exerciseId,
+            exerciseName: exercise.exerciseName,
+            sets: exercise.sets,
+            minReps: exercise.minReps,
+            maxReps: exercise.maxReps,
+            restSeconds: exercise.restSeconds,
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: ForgeSpacing.md),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: ForgeColors.surfaceRaised,
+                  borderRadius: BorderRadius.circular(ForgeRadius.sm),
+                  border: Border.all(color: ForgeColors.outline),
+                ),
+                child: Text(
+                  exercise.exerciseOrder.toString().padLeft(2, '0'),
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: ForgeColors.primary,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
               ),
-            ),
-          ),
 
-          const SizedBox(width: ForgeSpacing.md),
+              const SizedBox(width: ForgeSpacing.md),
 
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  exercise.exerciseName,
-                  style: Theme.of(context).textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w700),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      exercise.exerciseName,
+                      style: Theme.of(context).textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+
+                    const SizedBox(height: 5),
+
+                    Text(
+                      '${exercise.sets} \u00d7 '
+                      '$reps reps'
+                      ' \u2022 '
+                      '${exercise.restSeconds}s rest',
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: ForgeColors.textSecondary),
+                    ),
+
+                    const SizedBox(height: 5),
+
+                    Text(
+                      'View target muscles',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: ForgeColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
 
-                const SizedBox(height: 5),
+              const SizedBox(width: 8),
 
-                Text(
-                  '${exercise.sets} \u00d7 '
-                  '$reps reps'
-                  ' \u2022 '
-                  '${exercise.restSeconds}s rest',
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: ForgeColors.textSecondary),
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  color: ForgeColors.textMuted,
+                  size: 20,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
