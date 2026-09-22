@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/weekdays.dart';
 import '../../../core/theme/forge_theme.dart';
-import '../../program/data/program_models.dart';
 import '../../program/presentation/program_controller.dart';
+import '../../workout/data/workout_models.dart';
 import '../../workout/presentation/workout_controller.dart';
 import '../../workout/presentation/workout_history_screen.dart';
 
@@ -57,28 +57,32 @@ class ProgressScreen extends ConsumerWidget {
 
     final weekEnd = weekStart.add(const Duration(days: 7));
 
-    final completedDays = <int>{};
+    final completedThisWeek =
+        workoutState.history.where((workout) {
+          final completedAt = workout.completedAt;
 
-    for (final workout in workoutState.history) {
-      final completedAt = workout.completedAt;
+          if (workout.status != 'completed' ||
+              completedAt == null ||
+              workout.programVersionNumber != program.versionNumber) {
+            return false;
+          }
 
-      if (workout.status != 'completed' ||
-          completedAt == null ||
-          workout.programVersionNumber != program.versionNumber) {
-        continue;
-      }
+          final local = completedAt.toLocal();
 
-      final local = completedAt.toLocal();
+          return !local.isBefore(weekStart) && local.isBefore(weekEnd);
+        }).toList()..sort((left, right) {
+          final leftTime = left.completedAt ?? left.startedAt;
 
-      if (!local.isBefore(weekStart) && local.isBefore(weekEnd)) {
-        completedDays.add(workout.dayOfWeek);
-      }
-    }
+          final rightTime = right.completedAt ?? right.startedAt;
 
-    final days = [...program.days]
-      ..sort((left, right) => left.dayOrder.compareTo(right.dayOrder));
+          return rightTime.compareTo(leftTime);
+        });
 
-    final scheduledDays = days.map((day) => day.dayOfWeek).toSet();
+    final completedDays = completedThisWeek
+        .map((workout) => workout.dayOfWeek)
+        .toSet();
+
+    final scheduledDays = program.days.map((day) => day.dayOfWeek).toSet();
 
     final completedCount = completedDays.where(scheduledDays.contains).length;
 
@@ -132,17 +136,13 @@ class ProgressScreen extends ConsumerWidget {
             const SizedBox(height: ForgeSpacing.xxl),
 
             _SectionHeader(
-              title: 'WEEKLY SCHEDULE',
-              trailing: '$completedCount / $totalDays',
+              title: 'THIS WEEK',
+              trailing: '${completedThisWeek.length} SESSIONS',
             ),
 
             const SizedBox(height: ForgeSpacing.md),
 
-            _WeeklySchedule(
-              days: days,
-              completedDays: completedDays,
-              todayWeekday: now.weekday,
-            ),
+            _RecentActivity(workouts: completedThisWeek),
 
             const SizedBox(height: ForgeSpacing.xxl),
 
@@ -320,92 +320,100 @@ class _WeeklyProgressCard extends StatelessWidget {
   }
 }
 
-class _WeeklySchedule extends StatelessWidget {
-  const _WeeklySchedule({
-    required this.days,
-    required this.completedDays,
-    required this.todayWeekday,
-  });
+class _RecentActivity extends StatelessWidget {
+  const _RecentActivity({required this.workouts});
 
-  final List<ProgramDayData> days;
-  final Set<int> completedDays;
-  final int todayWeekday;
+  final List<WorkoutSummaryData> workouts;
 
   @override
   Widget build(BuildContext context) {
+    if (workouts.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(ForgeSpacing.xl),
+        decoration: BoxDecoration(
+          color: ForgeColors.surface,
+          borderRadius: BorderRadius.circular(ForgeRadius.lg),
+          border: Border.all(color: ForgeColors.outline),
+        ),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.fitness_center_outlined,
+              color: ForgeColors.textMuted,
+              size: 30,
+            ),
+
+            const SizedBox(height: ForgeSpacing.md),
+
+            Text(
+              'No completed workouts yet',
+              style: Theme.of(context).textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+
+            const SizedBox(height: 4),
+
+            Text(
+              'Completed sessions from this '
+              'week will appear here.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: ForgeColors.textSecondary),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final visible = workouts.take(4).toList();
+
     return Column(
       children: [
-        for (var index = 0; index < days.length; index++) ...[
-          _ProgressDayRow(
-            day: days[index],
-            isCompleted: completedDays.contains(days[index].dayOfWeek),
-            isToday: days[index].dayOfWeek == todayWeekday,
-          ),
+        for (var index = 0; index < visible.length; index++) ...[
+          _RecentWorkoutRow(workout: visible[index]),
 
-          if (index < days.length - 1) const SizedBox(height: ForgeSpacing.sm),
+          if (index < visible.length - 1)
+            const SizedBox(height: ForgeSpacing.sm),
         ],
       ],
     );
   }
 }
 
-class _ProgressDayRow extends StatelessWidget {
-  const _ProgressDayRow({
-    required this.day,
-    required this.isCompleted,
-    required this.isToday,
-  });
+class _RecentWorkoutRow extends StatelessWidget {
+  const _RecentWorkoutRow({required this.workout});
 
-  final ProgramDayData day;
-  final bool isCompleted;
-  final bool isToday;
+  final WorkoutSummaryData workout;
 
   @override
   Widget build(BuildContext context) {
+    final timestamp = workout.completedAt ?? workout.startedAt;
+
+    final local = timestamp.toLocal();
+
     return Container(
       padding: const EdgeInsets.all(ForgeSpacing.md),
       decoration: BoxDecoration(
-        color: isCompleted
-            ? ForgeColors.success.withValues(alpha: 0.05)
-            : ForgeColors.surface,
+        color: ForgeColors.surface,
         borderRadius: BorderRadius.circular(ForgeRadius.md),
-        border: Border.all(
-          color: isCompleted
-              ? ForgeColors.success.withValues(alpha: 0.20)
-              : isToday
-              ? ForgeColors.primary.withValues(alpha: 0.20)
-              : ForgeColors.outline,
-        ),
+        border: Border.all(color: ForgeColors.success.withValues(alpha: 0.16)),
       ),
       child: Row(
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 46,
+            height: 46,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: isCompleted
-                  ? ForgeColors.success.withValues(alpha: 0.10)
-                  : isToday
-                  ? ForgeColors.primary.withValues(alpha: 0.10)
-                  : ForgeColors.surfaceRaised,
+              color: ForgeColors.success.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(ForgeRadius.sm),
             ),
-            child: isCompleted
-                ? const Icon(
-                    Icons.check_rounded,
-                    color: ForgeColors.success,
-                    size: 22,
-                  )
-                : Text(
-                    _shortWeekday(day.dayOfWeek),
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: isToday
-                          ? ForgeColors.primary
-                          : ForgeColors.textSecondary,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
+            child: const Icon(
+              Icons.check_rounded,
+              color: ForgeColors.success,
+              size: 22,
+            ),
           ),
 
           const SizedBox(width: ForgeSpacing.md),
@@ -414,24 +422,18 @@ class _ProgressDayRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        weekdayLabel(day.dayOfWeek),
-                        style: Theme.of(context).textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-
-                    if (isToday && !isCompleted) const _TodayBadge(),
-                  ],
+                Text(
+                  workout.dayName,
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w800),
                 ),
 
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
 
                 Text(
-                  day.name,
+                  '${weekdayLabel(local.weekday)}'
+                  ' \u2022 '
+                  '${_formatActivityDate(local)}',
                   style: Theme.of(context).textTheme.bodySmall
                       ?.copyWith(color: ForgeColors.textSecondary),
                 ),
@@ -441,59 +443,15 @@ class _ProgressDayRow extends StatelessWidget {
 
           const SizedBox(width: 8),
 
-          _StatusBadge(completed: isCompleted),
+          Text(
+            'DONE',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: ForgeColors.success,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.6,
+            ),
+          ),
         ],
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.completed});
-
-  final bool completed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: completed
-            ? ForgeColors.success.withValues(alpha: 0.10)
-            : ForgeColors.surfaceRaised,
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Text(
-        completed ? 'COMPLETED' : 'SCHEDULED',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: completed ? ForgeColors.success : ForgeColors.textMuted,
-          fontWeight: FontWeight.w800,
-          fontSize: 9,
-        ),
-      ),
-    );
-  }
-}
-
-class _TodayBadge extends StatelessWidget {
-  const _TodayBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(left: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: ForgeColors.primary.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Text(
-        'TODAY',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: ForgeColors.primary,
-          fontWeight: FontWeight.w900,
-          fontSize: 8,
-        ),
       ),
     );
   }
@@ -678,12 +636,22 @@ class _ProgressErrorState extends StatelessWidget {
   }
 }
 
-String _shortWeekday(int value) {
-  final label = weekdayLabel(value);
+String _formatActivityDate(DateTime value) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
 
-  if (label.length <= 3) {
-    return label.toUpperCase();
-  }
-
-  return label.substring(0, 3).toUpperCase();
+  return '${months[value.month - 1]} '
+      '${value.day}';
 }

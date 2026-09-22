@@ -528,9 +528,9 @@ class _TrainDayCard extends StatelessWidget {
                     const SizedBox(height: 5),
                     Text(
                       '${weekdayLabel(day.dayOfWeek)}'
-                      ' ? '
+                      ' \u2022 '
                       '${day.estimatedDurationMinutes} min'
-                      ' ? '
+                      ' \u2022 '
                       '${day.exercises.length} exercises',
                       style: Theme.of(context).textTheme.bodySmall
                           ?.copyWith(color: ForgeColors.textSecondary),
