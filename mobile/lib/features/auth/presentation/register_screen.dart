@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/forge_theme.dart';
+
 import '../data/auth_repository.dart';
 import 'auth_session_controller.dart';
 
@@ -82,74 +84,174 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Account')),
+      appBar: AppBar(
+        title: const Text(
+          'CREATE ACCOUNT',
+        ),
+      ),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            ForgeSpacing.xl,
+            ForgeSpacing.lg,
+            ForgeSpacing.xl,
+            ForgeSpacing.xxl +
+                MediaQuery.paddingOf(context).bottom,
+          ),
+          child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(
+                maxWidth: 440,
+              ),
               child: Form(
                 key: _formKey,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      'Join FORGE',
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
+                    Container(
+                      width: 56,
+                      height: 56,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: ForgeColors.primary
+                            .withValues(
+                          alpha: 0.10,
+                        ),
+                        borderRadius:
+                            BorderRadius.circular(
+                          ForgeRadius.lg,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons
+                            .person_add_alt_1_rounded,
+                        color:
+                            ForgeColors.primary,
+                        size: 27,
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Create your account to start building your training plan.',
-                      style: Theme.of(context).textTheme.bodyLarge,
+
+                    const SizedBox(
+                      height: ForgeSpacing.xl,
                     ),
-                    const SizedBox(height: 32),
+
+                    Text(
+                      'JOIN FORGE',
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineMedium
+                          ?.copyWith(
+                            fontWeight:
+                                FontWeight.w900,
+                            letterSpacing: 0.3,
+                          ),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    Text(
+                      'Create your account and '
+                      'build a training plan around '
+                      'your goals, schedule and '
+                      'recovery.',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyLarge
+                          ?.copyWith(
+                            color: ForgeColors
+                                .textSecondary,
+                            height: 1.4,
+                          ),
+                    ),
+
+                    const SizedBox(
+                      height: ForgeSpacing.xl,
+                    ),
+
                     TextFormField(
-                      controller: _nameController,
-                      keyboardType: TextInputType.name,
-                      textCapitalization: TextCapitalization.words,
-                      textInputAction: TextInputAction.next,
-                      autofillHints: const [AutofillHints.name],
-                      decoration: const InputDecoration(
+                      controller:
+                          _nameController,
+                      keyboardType:
+                          TextInputType.name,
+                      textCapitalization:
+                          TextCapitalization.words,
+                      textInputAction:
+                          TextInputAction.next,
+                      autofillHints: const [
+                        AutofillHints.name,
+                      ],
+                      decoration:
+                          const InputDecoration(
                         labelText: 'Full Name',
-                        hintText: 'e.g. Albireo Musyaffa Finoe',
-                        border: OutlineInputBorder(),
+                        hintText:
+                            'e.g. Albireo Musyaffa Finoe',
+                        prefixIcon: Icon(
+                          Icons
+                              .person_outline_rounded,
+                        ),
                       ),
                       validator: (value) {
-                        final name = value?.trim() ?? '';
+                        final name =
+                            value?.trim() ?? '';
 
                         if (name.isEmpty) {
                           return 'Name is required.';
                         }
 
                         final normalized = name
-                            .split(RegExp(r'\s+'))
-                            .where((part) => part.isNotEmpty)
+                            .split(
+                              RegExp(r'\s+'),
+                            )
+                            .where(
+                              (part) =>
+                                  part.isNotEmpty,
+                            )
                             .join(' ');
 
-                        if (normalized.length < 2) {
+                        if (
+                          normalized.length < 2
+                        ) {
                           return 'Name must contain at least 2 characters.';
                         }
 
-                        if (normalized.length > 120) {
+                        if (
+                          normalized.length > 120
+                        ) {
                           return 'Name must not exceed 120 characters.';
                         }
 
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
+
+                    const SizedBox(
+                      height: ForgeSpacing.lg,
+                    ),
+
                     TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
+                      controller:
+                          _emailController,
+                      keyboardType:
+                          TextInputType.emailAddress,
+                      textInputAction:
+                          TextInputAction.next,
+                      autofillHints: const [
+                        AutofillHints.email,
+                      ],
+                      decoration:
+                          const InputDecoration(
                         labelText: 'Email',
-                        border: OutlineInputBorder(),
+                        hintText:
+                            'you@example.com',
+                        prefixIcon: Icon(
+                          Icons
+                              .mail_outline_rounded,
+                        ),
                       ),
                       validator: (value) {
-                        final email = value?.trim() ?? '';
+                        final email =
+                            value?.trim() ?? '';
 
                         if (email.isEmpty) {
                           return 'Email is required.';
@@ -162,30 +264,49 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
+
+                    const SizedBox(
+                      height: ForgeSpacing.lg,
+                    ),
+
                     TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      textInputAction: TextInputAction.next,
+                      controller:
+                          _passwordController,
+                      obscureText:
+                          _obscurePassword,
+                      textInputAction:
+                          TextInputAction.next,
+                      autofillHints: const [
+                        AutofillHints.newPassword,
+                      ],
                       decoration: InputDecoration(
                         labelText: 'Password',
-                        helperText: 'Minimum 8 characters',
-                        border: const OutlineInputBorder(),
+                        helperText:
+                            'Minimum 8 characters',
+                        prefixIcon: const Icon(
+                          Icons.lock_outline_rounded,
+                        ),
                         suffixIcon: IconButton(
                           onPressed: () {
                             setState(() {
-                              _obscurePassword = !_obscurePassword;
+                              _obscurePassword =
+                                  !_obscurePassword;
                             });
                           },
                           icon: Icon(
                             _obscurePassword
-                                ? Icons.visibility
-                                : Icons.visibility_off,
+                                ? Icons
+                                    .visibility_outlined
+                                : Icons
+                                    .visibility_off_outlined,
                           ),
                         ),
                       ),
                       validator: (value) {
-                        if (value == null || value.isEmpty) {
+                        if (
+                          value == null ||
+                          value.isEmpty
+                        ) {
                           return 'Password is required.';
                         }
 
@@ -196,18 +317,33 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
+
+                    const SizedBox(
+                      height: ForgeSpacing.lg,
+                    ),
+
                     TextFormField(
-                      controller: _confirmPasswordController,
-                      obscureText: _obscureConfirmPassword,
+                      controller:
+                          _confirmPasswordController,
+                      obscureText:
+                          _obscureConfirmPassword,
+                      textInputAction:
+                          TextInputAction.done,
+                      autofillHints: const [
+                        AutofillHints.newPassword,
+                      ],
                       onFieldSubmitted: (_) {
                         if (!_isSubmitting) {
                           _submit();
                         }
                       },
                       decoration: InputDecoration(
-                        labelText: 'Confirm Password',
-                        border: const OutlineInputBorder(),
+                        labelText:
+                            'Confirm Password',
+                        prefixIcon: const Icon(
+                          Icons
+                              .lock_reset_rounded,
+                        ),
                         suffixIcon: IconButton(
                           onPressed: () {
                             setState(() {
@@ -217,38 +353,95 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           },
                           icon: Icon(
                             _obscureConfirmPassword
-                                ? Icons.visibility
-                                : Icons.visibility_off,
+                                ? Icons
+                                    .visibility_outlined
+                                : Icons
+                                    .visibility_off_outlined,
                           ),
                         ),
                       ),
                       validator: (value) {
-                        if (value == null || value.isEmpty) {
+                        if (
+                          value == null ||
+                          value.isEmpty
+                        ) {
                           return 'Confirm your password.';
                         }
 
-                        if (value != _passwordController.text) {
+                        if (
+                          value !=
+                              _passwordController
+                                  .text
+                        ) {
                           return 'Passwords do not match.';
                         }
 
                         return null;
                       },
                     ),
-                    const SizedBox(height: 24),
+
+                    const SizedBox(
+                      height: ForgeSpacing.xl,
+                    ),
+
                     FilledButton(
-                      onPressed: _isSubmitting ? null : _submit,
+                      onPressed: _isSubmitting
+                          ? null
+                          : _submit,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding:
+                            const EdgeInsets.symmetric(
+                          vertical: 14,
+                        ),
                         child: _isSubmitting
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(
+                                child:
+                                    CircularProgressIndicator(
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('Create Account'),
+                            : const Text(
+                                'CREATE ACCOUNT',
+                              ),
                       ),
+                    ),
+
+                    const SizedBox(
+                      height: ForgeSpacing.lg,
+                    ),
+
+                    Row(
+                      mainAxisAlignment:
+                          MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Already have an account?',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                color: ForgeColors
+                                    .textSecondary,
+                              ),
+                        ),
+
+                        const SizedBox(width: 4),
+
+                        TextButton(
+                          onPressed: _isSubmitting
+                              ? null
+                              : () {
+                                  Navigator.of(
+                                    context,
+                                  ).pop();
+                                },
+                          child: const Text(
+                            'SIGN IN',
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -259,4 +452,5 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       ),
     );
   }
+
 }

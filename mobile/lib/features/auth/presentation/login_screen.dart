@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/forge_theme.dart';
+
 import '../data/auth_repository.dart';
 import 'auth_session_controller.dart';
 import 'register_screen.dart';
@@ -75,55 +77,147 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            ForgeSpacing.xl,
+            ForgeSpacing.xl,
+            ForgeSpacing.xl,
+            ForgeSpacing.xxl +
+                MediaQuery.paddingOf(context).bottom,
+          ),
+          child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(
+                maxWidth: 440,
+              ),
               child: Form(
                 key: _formKey,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      'FORGE',
-                      style: Theme.of(context).textTheme.displaySmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
+                    const SizedBox(height: 16),
+
+                    const _ForgeAuthBrand(),
+
+                    const SizedBox(
+                      height: ForgeSpacing.xxl,
                     ),
-                    const SizedBox(height: 8),
+
                     Text(
-                      'Adaptive Training Planner',
-                      style: Theme.of(context).textTheme.titleMedium,
+                      'WELCOME BACK',
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineMedium
+                          ?.copyWith(
+                            fontWeight:
+                                FontWeight.w900,
+                            letterSpacing: 0.3,
+                          ),
                     ),
+
+                    const SizedBox(height: 6),
+
+                    Text(
+                      'Sign in to continue your '
+                      'training.',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyLarge
+                          ?.copyWith(
+                            color: ForgeColors
+                                .textSecondary,
+                          ),
+                    ),
+
                     if (widget.notice != null) ...[
-                      const SizedBox(height: 24),
-                      Card(
-                        color: Theme.of(context).colorScheme.errorContainer,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(Icons.info_outline),
-                              const SizedBox(width: 12),
-                              Expanded(child: Text(widget.notice!)),
-                            ],
+                      const SizedBox(
+                        height: ForgeSpacing.xl,
+                      ),
+
+                      Container(
+                        padding: const EdgeInsets.all(
+                          ForgeSpacing.lg,
+                        ),
+                        decoration: BoxDecoration(
+                          color: ForgeColors.warning
+                              .withValues(
+                            alpha: 0.07,
+                          ),
+                          borderRadius:
+                              BorderRadius.circular(
+                            ForgeRadius.md,
+                          ),
+                          border: Border.all(
+                            color: ForgeColors.warning
+                                .withValues(
+                              alpha: 0.20,
+                            ),
                           ),
                         ),
+                        child: Row(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons
+                                  .info_outline_rounded,
+                              color:
+                                  ForgeColors.warning,
+                              size: 20,
+                            ),
+
+                            const SizedBox(
+                              width:
+                                  ForgeSpacing.md,
+                            ),
+
+                            Expanded(
+                              child: Text(
+                                widget.notice!,
+                                style:
+                                    Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color:
+                                              ForgeColors
+                                                  .textSecondary,
+                                          height: 1.4,
+                                        ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 24),
-                    ] else
-                      const SizedBox(height: 40),
+                    ],
+
+                    const SizedBox(
+                      height: ForgeSpacing.xl,
+                    ),
+
                     TextFormField(
                       controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
+                      keyboardType:
+                          TextInputType.emailAddress,
+                      textInputAction:
+                          TextInputAction.next,
+                      autofillHints: const [
+                        AutofillHints.email,
+                      ],
+                      decoration:
+                          const InputDecoration(
                         labelText: 'Email',
-                        border: OutlineInputBorder(),
+                        hintText:
+                            'you@example.com',
+                        prefixIcon: Icon(
+                          Icons
+                              .mail_outline_rounded,
+                        ),
                       ),
                       validator: (value) {
-                        final email = value?.trim() ?? '';
+                        final email =
+                            value?.trim() ?? '';
 
                         if (email.isEmpty) {
                           return 'Email is required.';
@@ -136,10 +230,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
+
+                    const SizedBox(
+                      height: ForgeSpacing.lg,
+                    ),
+
                     TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
+                      controller:
+                          _passwordController,
+                      obscureText:
+                          _obscurePassword,
+                      textInputAction:
+                          TextInputAction.done,
+                      autofillHints: const [
+                        AutofillHints.password,
+                      ],
                       onFieldSubmitted: (_) {
                         if (!_isSubmitting) {
                           _submit();
@@ -147,56 +252,106 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       },
                       decoration: InputDecoration(
                         labelText: 'Password',
-                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(
+                          Icons.lock_outline_rounded,
+                        ),
                         suffixIcon: IconButton(
                           onPressed: () {
                             setState(() {
-                              _obscurePassword = !_obscurePassword;
+                              _obscurePassword =
+                                  !_obscurePassword;
                             });
                           },
                           icon: Icon(
                             _obscurePassword
-                                ? Icons.visibility
-                                : Icons.visibility_off,
+                                ? Icons
+                                    .visibility_outlined
+                                : Icons
+                                    .visibility_off_outlined,
                           ),
                         ),
                       ),
                       validator: (value) {
-                        if (value == null || value.isEmpty) {
+                        if (
+                          value == null ||
+                          value.isEmpty
+                        ) {
                           return 'Password is required.';
                         }
 
                         return null;
                       },
                     ),
-                    const SizedBox(height: 24),
+
+                    const SizedBox(
+                      height: ForgeSpacing.xl,
+                    ),
+
                     FilledButton(
-                      onPressed: _isSubmitting ? null : _submit,
+                      onPressed: _isSubmitting
+                          ? null
+                          : _submit,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding:
+                            const EdgeInsets.symmetric(
+                          vertical: 14,
+                        ),
                         child: _isSubmitting
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(
+                                child:
+                                    CircularProgressIndicator(
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('Login'),
+                            : const Text(
+                                'SIGN IN',
+                              ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: _isSubmitting
-                          ? null
-                          : () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const RegisterScreen(),
-                                ),
-                              );
-                            },
-                      child: const Text("Don't have an account? Create one"),
+
+                    const SizedBox(
+                      height: ForgeSpacing.xl,
+                    ),
+
+                    Row(
+                      mainAxisAlignment:
+                          MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'New to FORGE?',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(
+                                color: ForgeColors
+                                    .textSecondary,
+                              ),
+                        ),
+
+                        const SizedBox(width: 4),
+
+                        TextButton(
+                          onPressed: _isSubmitting
+                              ? null
+                              : () {
+                                  Navigator.of(
+                                    context,
+                                  ).push(
+                                    MaterialPageRoute<
+                                        void>(
+                                      builder: (_) {
+                                        return const RegisterScreen();
+                                      },
+                                    ),
+                                  );
+                                },
+                          child: const Text(
+                            'CREATE ACCOUNT',
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -207,4 +362,90 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
     );
   }
+
 }
+
+
+class _ForgeAuthBrand
+    extends StatelessWidget {
+  const _ForgeAuthBrand();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: ForgeColors.primary,
+                borderRadius:
+                    BorderRadius.circular(
+                  ForgeRadius.md,
+                ),
+              ),
+              child: const Icon(
+                Icons.fitness_center_rounded,
+                color: Colors.black,
+                size: 25,
+              ),
+            ),
+
+            const SizedBox(
+              width: ForgeSpacing.md,
+            ),
+
+            Text(
+              'FORGE',
+              style: Theme.of(context)
+                  .textTheme
+                  .displaySmall
+                  ?.copyWith(
+                    fontWeight:
+                        FontWeight.w900,
+                    letterSpacing: -1,
+                  ),
+            ),
+          ],
+        ),
+
+        const SizedBox(
+          height: ForgeSpacing.md,
+        ),
+
+        Text(
+          'ADAPTIVE TRAINING PLANNER',
+          style: Theme.of(context)
+              .textTheme
+              .labelMedium
+              ?.copyWith(
+                color: ForgeColors.primary,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+              ),
+        ),
+
+        const SizedBox(height: 5),
+
+        Text(
+          'BUILD. TRAIN. ADAPT.',
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(
+                color:
+                    ForgeColors.textMuted,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
