@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/forge_theme.dart';
+
 import '../../equipment/presentation/equipment_controller.dart';
 import '../../equipment/presentation/equipment_screen.dart';
 import '../../muscles/presentation/muscle_priority_controller.dart';
@@ -18,162 +20,155 @@ class TrainingSetupScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Training Setup')),
+      appBar: AppBar(title: const Text('TRAINING SETUP')),
       body: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.fromLTRB(
+          ForgeSpacing.xl,
+          ForgeSpacing.lg,
+          ForgeSpacing.xl,
+          ForgeSpacing.xxl + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           Text(
-            'Training Setup',
+            'TRAINING SETUP',
             style: Theme.of(context).textTheme.headlineMedium
-                ?.copyWith(fontWeight: FontWeight.bold),
+                ?.copyWith(fontWeight: FontWeight.w900, letterSpacing: 0.4),
           ),
+
           const SizedBox(height: 6),
-          const Text(
-            'Manage the information FORGE uses to build your training program.',
-          ),
-          const SizedBox(height: 24),
 
-          const _SetupSectionLabel(label: 'Program Preferences'),
-          const SizedBox(height: 8),
-
-          Card(
-            margin: EdgeInsets.zero,
-            child: Column(
-              children: [
-                _SetupTile(
-  icon: Icons.flag_outlined,
-  title: 'Goals',
-  subtitle:
-      'Primary and secondary training goals',
-  onTap: () {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) {
-          return const _GoalSettingsPage();
-        },
-      ),
-    );
-  },
-),
-
-                const Divider(height: 1),
-
-           _SetupTile(
-  icon: Icons.calendar_month_outlined,
-  title: 'Training Schedule',
-  subtitle:
-      'Training days and session preferences',
-  onTap: () {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) {
-          return const _TrainingScheduleSettingsPage();
-        },
-      ),
-    );
-  },
-),
-
-                const Divider(height: 1),
-
-                _SetupTile(
-                  icon: Icons.trending_up,
-                  title: 'Experience Level',
-                  subtitle: 'Beginner, intermediate or advanced',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (context) {
-                          return const _ExperienceSettingsPage();
-                        },
-                      ),
-                    );
-                  },
-                ),
-
-                const Divider(height: 1),
-
-                _SetupTile(
-                  icon: Icons.accessibility_new,
-                  title: 'Muscle Priorities',
-                  subtitle: 'Choose which muscles receive more focus',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (context) {
-                          return const _MusclePrioritySettingsPage();
-                        },
-                      ),
-                    );
-                  },
-                ),
-
-                const Divider(height: 1),
-
-                _SetupTile(
-                  icon: Icons.fitness_center,
-                  title: 'Equipment',
-                  subtitle: 'Full gym or custom equipment',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (context) {
-                          return const _EquipmentSettingsPage();
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
+          Text(
+            'Configure how FORGE builds '
+            'your training program.',
+            style: Theme.of(context).textTheme.bodyLarge
+                ?.copyWith(color: ForgeColors.textSecondary),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: ForgeSpacing.xl),
 
-          const _SetupSectionLabel(label: 'Other Activities'),
-          const SizedBox(height: 8),
+          const _SetupOverviewCard(),
 
-          Card(
-            margin: EdgeInsets.zero,
-            child: _SetupTile(
-              icon: Icons.sports_mma,
-              title: 'Sports Activities',
-              subtitle: 'Boxing, running and other sports',
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (context) {
-                      return const SportsSetupScreen(settingsMode: true);
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
+          const SizedBox(height: ForgeSpacing.xxl),
 
-          const SizedBox(height: 24),
+          const _SetupSectionLabel(label: 'PROGRAM PREFERENCES'),
 
-          Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.info_outline),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Changes to your training setup do not automatically '
-                      'replace your active program. FORGE will let you decide '
-                      'when to regenerate it.',
-                      style: Theme.of(context).textTheme.bodyMedium,
+          const SizedBox(height: ForgeSpacing.md),
+
+          _SetupGroup(
+            children: [
+              _SetupTile(
+                icon: Icons.flag_rounded,
+                title: 'Goals',
+                subtitle: 'Primary and secondary training goals',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) {
+                        return const _GoalSettingsPage();
+                      },
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
-            ),
+
+              const _SetupDivider(),
+
+              _SetupTile(
+                icon: Icons.calendar_month_rounded,
+                title: 'Training Schedule',
+                subtitle: 'Training days and session preferences',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) {
+                        return const _TrainingScheduleSettingsPage();
+                      },
+                    ),
+                  );
+                },
+              ),
+
+              const _SetupDivider(),
+
+              _SetupTile(
+                icon: Icons.trending_up_rounded,
+                title: 'Experience Level',
+                subtitle: 'Beginner, intermediate or advanced',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) {
+                        return const _ExperienceSettingsPage();
+                      },
+                    ),
+                  );
+                },
+              ),
+
+              const _SetupDivider(),
+
+              _SetupTile(
+                icon: Icons.accessibility_new_rounded,
+                title: 'Muscle Priorities',
+                subtitle: 'Choose which muscles receive more focus',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) {
+                        return const _MusclePrioritySettingsPage();
+                      },
+                    ),
+                  );
+                },
+              ),
+
+              const _SetupDivider(),
+
+              _SetupTile(
+                icon: Icons.fitness_center_rounded,
+                title: 'Equipment',
+                subtitle: 'Full gym or custom equipment',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) {
+                        return const _EquipmentSettingsPage();
+                      },
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
+
+          const SizedBox(height: ForgeSpacing.xxl),
+
+          const _SetupSectionLabel(label: 'OTHER ACTIVITIES'),
+
+          const SizedBox(height: ForgeSpacing.md),
+
+          _SetupGroup(
+            children: [
+              _SetupTile(
+                icon: Icons.sports_mma_rounded,
+                title: 'Sports Activities',
+                subtitle: 'Boxing, running and other sports',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) {
+                        return const SportsSetupScreen(settingsMode: true);
+                      },
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+
+          const SizedBox(height: ForgeSpacing.xxl),
+
+          const _TrainingSetupNotice(),
         ],
       ),
     );
@@ -189,19 +184,13 @@ class _GoalSettingsPage extends ConsumerWidget {
 
     return onboarding.when(
       loading: () {
-        return const _SettingsLoadingScreen(
-          title: 'Training Goals',
-        );
+        return const _SettingsLoadingScreen(title: 'Training Goals');
       },
       error: (error, stackTrace) {
         return _SettingsErrorScreen(
           title: 'Training Goals',
           onRetry: () {
-            ref
-                .read(
-                  onboardingControllerProvider.notifier,
-                )
-                .refresh();
+            ref.read(onboardingControllerProvider.notifier).refresh();
           },
         );
       },
@@ -209,15 +198,10 @@ class _GoalSettingsPage extends ConsumerWidget {
         final goal = data.goal;
 
         if (goal == null) {
-          return const _MissingSettingsScreen(
-            title: 'Training Goals',
-          );
+          return const _MissingSettingsScreen(title: 'Training Goals');
         }
 
-        return GoalSelectionScreen(
-          initialGoal: goal,
-          settingsMode: true,
-        );
+        return GoalSelectionScreen(initialGoal: goal, settingsMode: true);
       },
     );
   }
@@ -232,19 +216,13 @@ class _TrainingScheduleSettingsPage extends ConsumerWidget {
 
     return onboarding.when(
       loading: () {
-        return const _SettingsLoadingScreen(
-          title: 'Training Schedule',
-        );
+        return const _SettingsLoadingScreen(title: 'Training Schedule');
       },
       error: (error, stackTrace) {
         return _SettingsErrorScreen(
           title: 'Training Schedule',
           onRetry: () {
-            ref
-                .read(
-                  onboardingControllerProvider.notifier,
-                )
-                .refresh();
+            ref.read(onboardingControllerProvider.notifier).refresh();
           },
         );
       },
@@ -252,9 +230,7 @@ class _TrainingScheduleSettingsPage extends ConsumerWidget {
         final preferences = data.trainingPreferences;
 
         if (preferences == null) {
-          return const _MissingSettingsScreen(
-            title: 'Training Schedule',
-          );
+          return const _MissingSettingsScreen(title: 'Training Schedule');
         }
 
         return TrainingPreferencesScreen(
@@ -352,9 +328,7 @@ class _MissingSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-      ),
+      appBar: AppBar(title: Text(title)),
       body: const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
@@ -414,6 +388,67 @@ class _SettingsErrorScreen extends StatelessWidget {
   }
 }
 
+class _SetupOverviewCard extends StatelessWidget {
+  const _SetupOverviewCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.lg),
+      decoration: BoxDecoration(
+        color: ForgeColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.primary.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: ForgeColors.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(ForgeRadius.md),
+            ),
+            child: const Icon(
+              Icons.tune_rounded,
+              color: ForgeColors.primary,
+              size: 24,
+            ),
+          ),
+
+          const SizedBox(width: ForgeSpacing.md),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Your training profile',
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+
+                const SizedBox(height: 5),
+
+                Text(
+                  'Goals, schedule, experience, '
+                  'muscle priorities, equipment '
+                  'and sports all influence how '
+                  'FORGE builds your program.',
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: ForgeColors.textSecondary, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SetupSectionLabel extends StatelessWidget {
   const _SetupSectionLabel({required this.label});
 
@@ -424,7 +459,26 @@ class _SetupSectionLabel extends StatelessWidget {
     return Text(
       label,
       style: Theme.of(context).textTheme.titleSmall
-          ?.copyWith(fontWeight: FontWeight.w600),
+          ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: 0.8),
+    );
+  }
+}
+
+class _SetupGroup extends StatelessWidget {
+  const _SetupGroup({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: children),
     );
   }
 }
@@ -434,24 +488,142 @@ class _SetupTile extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
-    this.onTap,
+    required this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: const Icon(
-        Icons.chevron_right,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(ForgeSpacing.lg),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: ForgeColors.surfaceRaised,
+                  borderRadius: BorderRadius.circular(ForgeRadius.md),
+                ),
+                child: Icon(icon, size: 22, color: ForgeColors.primary),
+              ),
+
+              const SizedBox(width: ForgeSpacing.md),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+
+                    const SizedBox(height: 3),
+
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: ForgeColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 8),
+
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: ForgeColors.textMuted,
+              ),
+            ],
+          ),
+        ),
       ),
-      onTap: onTap,
+    );
+  }
+}
+
+class _SetupDivider extends StatelessWidget {
+  const _SetupDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Divider(height: 1, indent: 72);
+  }
+}
+
+class _TrainingSetupNotice extends StatelessWidget {
+  const _TrainingSetupNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.lg),
+      decoration: BoxDecoration(
+        color: ForgeColors.warning.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.warning.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: ForgeColors.warning.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(ForgeRadius.sm),
+            ),
+            child: const Icon(
+              Icons.info_outline_rounded,
+              color: ForgeColors.warning,
+              size: 21,
+            ),
+          ),
+
+          const SizedBox(width: ForgeSpacing.md),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'PROGRAM REGENERATION',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: ForgeColors.warning,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+
+                const SizedBox(height: 5),
+
+                Text(
+                  'Changes to your training '
+                  'setup do not automatically '
+                  'replace your active program. '
+                  'FORGE will let you decide '
+                  'when to regenerate it.',
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: ForgeColors.textSecondary, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -175,7 +175,7 @@ class _GoalSelectionScreenState extends ConsumerState<GoalSelectionScreen> {
                   Text(
                     primaryGoal == null
                         ? 'Choose your primary goal first.'
-                        : 'Optional — choose up to 2 additional goals.',
+                        : 'Optional \u2014 choose up to 2 additional goals.',
                   ),
                   const SizedBox(height: 16),
 
@@ -187,8 +187,24 @@ class _GoalSelectionScreenState extends ConsumerState<GoalSelectionScreen> {
                         for (final goal in TrainingGoal.values)
                           if (goal != primaryGoal)
                             FilterChip(
-                              label: Text(goal.label),
+                              label: Text(
+                                goal.label,
+                                style: TextStyle(
+                                  color: _secondaryGoals.contains(goal)
+                                      ? Theme.of(context).colorScheme.onPrimary
+                                      : Theme.of(context).colorScheme.onSurface,
+                                  fontWeight: _secondaryGoals.contains(goal)
+                                      ? FontWeight.w800
+                                      : FontWeight.w600,
+                                ),
+                              ),
                               selected: _secondaryGoals.contains(goal),
+                              selectedColor: Theme.of(context)
+                                  .colorScheme
+                                  .primary,
+                              checkmarkColor: Theme.of(context)
+                                  .colorScheme
+                                  .onPrimary,
                               onSelected: _isSubmitting
                                   ? null
                                   : (selected) {

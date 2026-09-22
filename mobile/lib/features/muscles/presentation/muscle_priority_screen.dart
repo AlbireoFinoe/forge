@@ -120,7 +120,7 @@ class _MusclePriorityScreenState extends ConsumerState<MusclePriorityScreen> {
 
                   for (final entry in grouped.entries) ...[
                     Text(
-                      entry.key,
+                      _formatRegionLabel(entry.key),
                       style: Theme.of(context).textTheme.titleLarge
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
@@ -205,8 +205,20 @@ class _MusclePriorityCard extends StatelessWidget {
               children: [
                 for (final option in MusclePriorityLevel.values)
                   ChoiceChip(
-                    label: Text(option.label),
+                    label: Text(
+                      option.label,
+                      style: TextStyle(
+                        color: priority == option
+                            ? Theme.of(context).colorScheme.onPrimary
+                            : Theme.of(context).colorScheme.onSurface,
+                        fontWeight: priority == option
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                      ),
+                    ),
                     selected: priority == option,
+                    selectedColor: Theme.of(context).colorScheme.primary,
+                    checkmarkColor: Theme.of(context).colorScheme.onPrimary,
                     onSelected: enabled
                         ? (_) {
                             onChanged(option);
@@ -220,4 +232,19 @@ class _MusclePriorityCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatRegionLabel(String value) {
+  return value
+      .split('_')
+      .where((part) => part.isNotEmpty)
+      .map((part) {
+        if (part.isEmpty) {
+          return part;
+        }
+
+        return '${part[0].toUpperCase()}'
+            '${part.substring(1).toLowerCase()}';
+      })
+      .join(' ');
 }

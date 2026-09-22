@@ -214,10 +214,28 @@ abstract final class ForgeTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(ForgeRadius.sm),
         ),
-        labelStyle: const TextStyle(
-          color: ForgeColors.textPrimary,
-          fontWeight: FontWeight.w600,
-        ),
+        showCheckmark: true,
+        checkmarkColor: Colors.black,
+        labelStyle: WidgetStateTextStyle.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.w800,
+            );
+          }
+
+          if (states.contains(WidgetState.disabled)) {
+            return const TextStyle(
+              color: ForgeColors.textMuted,
+              fontWeight: FontWeight.w600,
+            );
+          }
+
+          return const TextStyle(
+            color: ForgeColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          );
+        }),
       ),
 
       progressIndicatorTheme: const ProgressIndicatorThemeData(

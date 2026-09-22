@@ -6,23 +6,20 @@ import '../data/onboarding_repository.dart';
 import 'onboarding_controller.dart';
 import '../data/onboarding_models.dart';
 
-class TrainingPreferencesScreen
-    extends ConsumerStatefulWidget {
+class TrainingPreferencesScreen extends ConsumerStatefulWidget {
   const TrainingPreferencesScreen({
     this.initialPreferences,
     this.settingsMode = false,
     super.key,
   });
 
-  final TrainingPreferencesData?
-      initialPreferences;
+  final TrainingPreferencesData? initialPreferences;
 
   final bool settingsMode;
 
   @override
-  ConsumerState<TrainingPreferencesScreen>
-      createState() =>
-          _TrainingPreferencesScreenState();
+  ConsumerState<TrainingPreferencesScreen> createState() =>
+      _TrainingPreferencesScreenState();
 }
 
 class _TrainingPreferencesScreenState
@@ -36,27 +33,21 @@ class _TrainingPreferencesScreenState
   bool _isSubmitting = false;
 
   @override
-void initState() {
-  super.initState();
+  void initState() {
+    super.initState();
 
-  final preferences =
-      widget.initialPreferences;
+    final preferences = widget.initialPreferences;
 
-  if (preferences != null) {
-    _selectedDays.addAll(
-      preferences.availableDays,
-    );
+    if (preferences != null) {
+      _selectedDays.addAll(preferences.availableDays);
 
-    _sessionDurationMinutes =
-        preferences.sessionDurationMinutes;
+      _sessionDurationMinutes = preferences.sessionDurationMinutes;
 
-    _noDedicatedLegDay =
-        preferences.noDedicatedLegDay;
+      _noDedicatedLegDay = preferences.noDedicatedLegDay;
 
-    _armSpecialization =
-        preferences.armSpecialization;
+      _armSpecialization = preferences.armSpecialization;
+    }
   }
-}
 
   Future<void> _continue() async {
     if (_selectedDays.isEmpty || _isSubmitting) {
@@ -117,11 +108,7 @@ void initState() {
 
     return Scaffold(
       appBar: widget.settingsMode
-          ? AppBar(
-              title: const Text(
-                'Training Schedule',
-              ),
-            )
+          ? AppBar(title: const Text('Training Schedule'))
           : null,
       body: SafeArea(
         child: Center(
@@ -162,8 +149,22 @@ void initState() {
                     children: [
                       for (final day in weekdays)
                         FilterChip(
-                          label: Text(day.shortLabel),
+                          label: Text(
+                            day.shortLabel,
+                            style: TextStyle(
+                              color: _selectedDays.contains(day.value)
+                                  ? Theme.of(context).colorScheme.onPrimary
+                                  : Theme.of(context).colorScheme.onSurface,
+                              fontWeight: _selectedDays.contains(day.value)
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
+                            ),
+                          ),
                           selected: _selectedDays.contains(day.value),
+                          selectedColor: Theme.of(context).colorScheme.primary,
+                          checkmarkColor: Theme.of(context)
+                              .colorScheme
+                              .onPrimary,
                           onSelected: _isSubmitting
                               ? null
                               : (selected) {
@@ -251,9 +252,7 @@ void initState() {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : Text(
-                              widget.settingsMode
-                                  ? 'Save Changes'
-                                  : 'Continue',
+                              widget.settingsMode ? 'Save Changes' : 'Continue',
                             ),
                     ),
                   ),

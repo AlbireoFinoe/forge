@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../auth/data/auth_user.dart';
+import '../../../core/theme/forge_theme.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../auth/data/auth_user.dart';
 import '../../auth/presentation/auth_session_controller.dart';
 import '../../sports/presentation/sports_setup_screen.dart';
 import 'training_setup_screen.dart';
@@ -72,104 +73,376 @@ class ProfileScreen extends ConsumerWidget {
     final initial = _initial;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(title: const Text('PROFILE')),
       body: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.fromLTRB(
+          ForgeSpacing.xl,
+          ForgeSpacing.lg,
+          ForgeSpacing.xl,
+          ForgeSpacing.xxl + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
-          Center(
-            child: CircleAvatar(
-              radius: 42,
-              child: initial == null
-                  ? const Icon(Icons.person, size: 42)
-                  : Text(
-                      initial,
-                      style: Theme.of(context).textTheme.headlineMedium,
+          Text(
+            'PROFILE',
+            style: Theme.of(context).textTheme.headlineMedium
+                ?.copyWith(fontWeight: FontWeight.w900, letterSpacing: 0.4),
+          ),
+
+          const SizedBox(height: 6),
+
+          Text(
+            'Manage your FORGE account.',
+            style: Theme.of(context).textTheme.bodyLarge
+                ?.copyWith(color: ForgeColors.textSecondary),
+          ),
+
+          const SizedBox(height: ForgeSpacing.xl),
+
+          _IdentityCard(
+            displayName: displayName,
+            initial: initial,
+            email: user.email,
+            onEdit: () {
+              _editFullName(context, ref);
+            },
+          ),
+
+          const SizedBox(height: ForgeSpacing.xxl),
+
+          const _SectionLabel(label: 'TRAINING'),
+
+          const SizedBox(height: ForgeSpacing.md),
+
+          _SettingsCard(
+            children: [
+              _SettingsTile(
+                icon: Icons.tune_rounded,
+                title: 'Training Preferences',
+                subtitle: 'Goals, schedule and equipment',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) {
+                        return const TrainingSetupScreen();
+                      },
                     ),
+                  );
+                },
+              ),
+              const _SettingsDivider(),
+              _SettingsTile(
+                icon: Icons.sports_mma_rounded,
+                title: 'Sports Activities',
+                subtitle: 'Boxing, running and other sports',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) {
+                        return const SportsSetupScreen(settingsMode: true);
+                      },
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+
+          const SizedBox(height: ForgeSpacing.xxl),
+
+          const _SectionLabel(label: 'ACCOUNT'),
+
+          const SizedBox(height: ForgeSpacing.md),
+
+          _LogoutCard(
+            onLogout: () async {
+              await ref.read(authSessionControllerProvider.notifier).logout();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IdentityCard extends StatelessWidget {
+  const _IdentityCard({
+    required this.displayName,
+    required this.initial,
+    required this.email,
+    required this.onEdit,
+  });
+
+  final String? displayName;
+  final String? initial;
+  final String email;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final avatarInitial = initial;
+
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.xl),
+      decoration: BoxDecoration(
+        color: ForgeColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.primary.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: ForgeColors.primary.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: ForgeColors.primary.withValues(alpha: 0.22),
+              ),
             ),
+            child: avatarInitial == null
+                ? const Icon(
+                    Icons.person_rounded,
+                    size: 30,
+                    color: ForgeColors.primary,
+                  )
+                : Text(
+                    avatarInitial,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: ForgeColors.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(width: ForgeSpacing.lg),
 
-          Text(
-            displayName ?? 'Set your name',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleLarge
-                ?.copyWith(fontWeight: FontWeight.w700),
-          ),
-
-          const SizedBox(height: 4),
-
-          Text(
-            user.email,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-
-          const SizedBox(height: 32),
-
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.badge_outlined),
-              title: const Text('Full Name'),
-              subtitle: Text(displayName ?? 'Add your account name'),
-              trailing: const Icon(Icons.edit_outlined),
-              onTap: () {
-                _editFullName(context, ref);
-              },
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          Card(
+          Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ListTile(
-                  leading: const Icon(Icons.tune),
-                  title: const Text('Training Preferences'),
-                  subtitle: const Text('Goals, schedule and equipment'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (context) {
-                          return const TrainingSetupScreen();
-                        },
-                      ),
-                    );
-                  },
+                Text(
+                  displayName ?? 'Set your name',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w800),
                 ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.sports_mma),
-                  title: const Text('Sports Activities'),
-                  subtitle: const Text('Boxing, running and other sports'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (context) {
-                          return const SportsSetupScreen(settingsMode: true);
-                        },
+
+                const SizedBox(height: 4),
+
+                Text(
+                  email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: ForgeColors.textSecondary),
+                ),
+
+                const SizedBox(height: ForgeSpacing.md),
+
+                GestureDetector(
+                  onTap: onEdit,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.edit_rounded,
+                        size: 16,
+                        color: ForgeColors.primary,
                       ),
-                    );
-                  },
+                      const SizedBox(width: 6),
+                      Text(
+                        'EDIT PROFILE',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: ForgeColors.primary,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.7,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: Theme.of(context).textTheme.titleSmall
+          ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: 0.8),
+    );
+  }
+}
+
+class _SettingsCard extends StatelessWidget {
+  const _SettingsCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: children),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(ForgeSpacing.lg),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: ForgeColors.surfaceRaised,
+                  borderRadius: BorderRadius.circular(ForgeRadius.md),
+                ),
+                child: Icon(icon, size: 22, color: ForgeColors.primary),
+              ),
+
+              const SizedBox(width: ForgeSpacing.md),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: ForgeColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 8),
+
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: ForgeColors.textMuted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsDivider extends StatelessWidget {
+  const _SettingsDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Divider(height: 1, indent: 72);
+  }
+}
+
+class _LogoutCard extends StatelessWidget {
+  const _LogoutCard({required this.onLogout});
+
+  final Future<void> Function() onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.lg),
+      decoration: BoxDecoration(
+        color: ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: ForgeColors.error.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(ForgeRadius.md),
+            ),
+            child: const Icon(
+              Icons.logout_rounded,
+              color: ForgeColors.error,
+              size: 21,
+            ),
+          ),
+
+          const SizedBox(width: ForgeSpacing.md),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Log out',
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Sign out of this device',
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: ForgeColors.textSecondary),
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 24),
-
-          OutlinedButton.icon(
-            onPressed: () async {
-              await ref.read(authSessionControllerProvider.notifier).logout();
+          TextButton(
+            onPressed: () {
+              onLogout();
             },
-            icon: const Icon(Icons.logout),
-            label: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Text('Logout'),
-            ),
+            style: TextButton.styleFrom(foregroundColor: ForgeColors.error),
+            child: const Text('LOG OUT'),
           ),
         ],
       ),
