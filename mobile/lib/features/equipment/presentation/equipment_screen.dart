@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/forge_theme.dart';
+import '../../../core/widgets/forge_onboarding_progress.dart';
 
 import '../data/equipment_models.dart';
 import '../data/equipment_repository.dart';
@@ -164,6 +165,11 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (!widget.settingsMode) ...[
+                    const ForgeOnboardingProgress(currentStep: 5),
+                    const SizedBox(height: ForgeSpacing.xxl),
+                  ],
+
                   Text(
                     'TRAINING EQUIPMENT',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(

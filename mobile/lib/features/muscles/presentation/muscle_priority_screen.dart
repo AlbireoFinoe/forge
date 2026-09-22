@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/forge_theme.dart';
+import '../../../core/widgets/forge_onboarding_progress.dart';
+
 import '../data/muscle_models.dart';
 import '../data/muscle_repository.dart';
 import 'muscle_priority_controller.dart';
@@ -101,6 +104,11 @@ class _MusclePriorityScreenState extends ConsumerState<MusclePriorityScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (!widget.settingsMode) ...[
+                    const ForgeOnboardingProgress(currentStep: 4),
+                    const SizedBox(height: ForgeSpacing.xxl),
+                  ],
+
                   Text(
                     'Set your muscle priorities',
                     style: Theme.of(context).textTheme.headlineMedium

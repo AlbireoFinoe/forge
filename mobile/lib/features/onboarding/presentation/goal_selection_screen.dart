@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/forge_theme.dart';
+import '../../../core/widgets/forge_onboarding_progress.dart';
+
 import '../data/onboarding_models.dart';
 import '../data/onboarding_repository.dart';
 import 'onboarding_controller.dart';
@@ -141,6 +144,11 @@ class _GoalSelectionScreenState extends ConsumerState<GoalSelectionScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (!widget.settingsMode) ...[
+                    const ForgeOnboardingProgress(currentStep: 1),
+                    const SizedBox(height: ForgeSpacing.xxl),
+                  ],
+
                   Text(
                     'What is your main goal?',
                     style: Theme.of(context).textTheme.headlineMedium

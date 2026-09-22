@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/weekdays.dart';
 import '../../../core/theme/forge_theme.dart';
+import '../../../core/widgets/forge_onboarding_progress.dart';
 import '../data/sport_models.dart';
 import '../data/sport_repository.dart';
 import 'sport_controller.dart';
@@ -17,7 +18,9 @@ class SportsSetupScreen extends ConsumerWidget {
     final sports = ref.watch(sportControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Sports Activities')),
+      appBar: settingsMode
+          ? AppBar(title: const Text('Sports Activities'))
+          : null,
       body: sports.when(
         loading: () {
           return const Center(child: CircularProgressIndicator());
@@ -293,6 +296,11 @@ class _SportsSetupContentState extends ConsumerState<_SportsSetupContent> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (!widget.settingsMode) ...[
+                  const ForgeOnboardingProgress(currentStep: 6),
+                  const SizedBox(height: ForgeSpacing.xxl),
+                ],
+
                 Text(
                   'SPORTS ACTIVITIES',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/forge_theme.dart';
+import '../../../core/widgets/forge_onboarding_progress.dart';
+
 import '../../../core/constants/weekdays.dart';
 import '../data/onboarding_repository.dart';
 import 'onboarding_controller.dart';
@@ -119,6 +122,11 @@ class _TrainingPreferencesScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (!widget.settingsMode) ...[
+                    const ForgeOnboardingProgress(currentStep: 2),
+                    const SizedBox(height: ForgeSpacing.xxl),
+                  ],
+
                   Text(
                     'Build your training schedule',
                     style: Theme.of(context).textTheme.headlineMedium

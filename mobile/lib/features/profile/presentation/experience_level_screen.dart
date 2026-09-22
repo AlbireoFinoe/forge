@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/forge_theme.dart';
+import '../../../core/widgets/forge_onboarding_progress.dart';
 
 import '../data/profile_models.dart';
 import '../data/profile_repository.dart';
@@ -98,6 +99,11 @@ class _ExperienceLevelScreenState extends ConsumerState<ExperienceLevelScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (!widget.settingsMode) ...[
+                    const ForgeOnboardingProgress(currentStep: 3),
+                    const SizedBox(height: ForgeSpacing.xxl),
+                  ],
+
                   Text(
                     widget.settingsMode
                         ? 'EXPERIENCE LEVEL'
