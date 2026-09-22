@@ -29,14 +29,6 @@ class TrainingSetupScreen extends StatelessWidget {
         ),
         children: [
           Text(
-            'TRAINING SETUP',
-            style: Theme.of(context).textTheme.headlineMedium
-                ?.copyWith(fontWeight: FontWeight.w900, letterSpacing: 0.4),
-          ),
-
-          const SizedBox(height: 6),
-
-          Text(
             'Configure how FORGE builds '
             'your training program.',
             style: Theme.of(context).textTheme.bodyLarge

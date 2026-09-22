@@ -104,17 +104,17 @@ class _ExperienceLevelScreenState extends ConsumerState<ExperienceLevelScreen> {
                     const SizedBox(height: ForgeSpacing.xxl),
                   ],
 
-                  Text(
-                    widget.settingsMode
-                        ? 'EXPERIENCE LEVEL'
-                        : 'YOUR EXPERIENCE',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.3,
+                  if (!widget.settingsMode) ...[
+                    Text(
+                      'YOUR EXPERIENCE',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.3,
+                          ),
                     ),
-                  ),
-
-                  const SizedBox(height: 6),
+                    const SizedBox(height: 6),
+                  ],
 
                   Text(
                     'FORGE uses your experience '

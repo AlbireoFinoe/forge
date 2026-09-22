@@ -46,16 +46,6 @@ class WorkoutHistoryScreen extends ConsumerWidget {
               ),
               children: [
                 Text(
-                  'WORKOUT HISTORY',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-
-                const SizedBox(height: 6),
-
-                Text(
                   'Your completed training sessions.',
                   style: Theme.of(context).textTheme.bodyLarge
                       ?.copyWith(color: ForgeColors.textSecondary),

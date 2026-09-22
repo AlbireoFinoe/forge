@@ -114,15 +114,17 @@ class _MusclePriorityScreenState extends ConsumerState<MusclePriorityScreen> {
                     const SizedBox(height: ForgeSpacing.xxl),
                   ],
 
-                  Text(
-                    'MUSCLE PRIORITIES',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.3,
+                  if (!widget.settingsMode) ...[
+                    Text(
+                      'MUSCLE PRIORITIES',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.3,
+                          ),
                     ),
-                  ),
-
-                  const SizedBox(height: 6),
+                    const SizedBox(height: 6),
+                  ],
 
                   Text(
                     'Tell FORGE where you want '

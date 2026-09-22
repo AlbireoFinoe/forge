@@ -215,34 +215,6 @@ class _ProgramHeader extends StatelessWidget {
               ),
             ],
           ),
-
-          const SizedBox(height: ForgeSpacing.xl),
-
-          Container(
-            padding: const EdgeInsets.all(ForgeSpacing.md),
-            decoration: BoxDecoration(
-              color: ForgeColors.surface,
-              borderRadius: BorderRadius.circular(ForgeRadius.md),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.auto_awesome_rounded,
-                  size: 18,
-                  color: ForgeColors.textMuted,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Generated with FORGE '
-                    '${program.generatorVersion}',
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: ForgeColors.textSecondary),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

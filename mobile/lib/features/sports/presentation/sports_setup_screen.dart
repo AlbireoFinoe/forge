@@ -301,15 +301,16 @@ class _SportsSetupContentState extends ConsumerState<_SportsSetupContent> {
                   const SizedBox(height: ForgeSpacing.xxl),
                 ],
 
-                Text(
-                  'SPORTS ACTIVITIES',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.3,
+                if (!widget.settingsMode) ...[
+                  Text(
+                    'SPORTS ACTIVITIES',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.3,
+                    ),
                   ),
-                ),
-
-                const SizedBox(height: 6),
+                  const SizedBox(height: 6),
+                ],
 
                 Text(
                   'Add sports you regularly do '

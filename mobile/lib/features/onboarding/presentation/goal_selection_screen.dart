@@ -154,15 +154,17 @@ class _GoalSelectionScreenState extends ConsumerState<GoalSelectionScreen> {
                     const SizedBox(height: ForgeSpacing.xxl),
                   ],
 
-                  Text(
-                    widget.settingsMode ? 'TRAINING GOALS' : 'YOUR GOALS',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.3,
+                  if (!widget.settingsMode) ...[
+                    Text(
+                      'YOUR GOALS',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.3,
+                          ),
                     ),
-                  ),
-
-                  const SizedBox(height: 6),
+                    const SizedBox(height: 6),
+                  ],
 
                   Text(
                     'Choose what should lead your '

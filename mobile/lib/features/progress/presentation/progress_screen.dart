@@ -173,11 +173,11 @@ class _ProgressAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(title: const Text('PROGRESS'));
+    return AppBar(toolbarHeight: 0);
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => Size.zero;
 }
 
 class _WeeklyProgressCard extends StatelessWidget {

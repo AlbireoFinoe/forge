@@ -73,7 +73,7 @@ class ProfileScreen extends ConsumerWidget {
     final initial = _initial;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('PROFILE')),
+      appBar: AppBar(toolbarHeight: 0),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
           ForgeSpacing.xl,

@@ -170,15 +170,17 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
                     const SizedBox(height: ForgeSpacing.xxl),
                   ],
 
-                  Text(
-                    'TRAINING EQUIPMENT',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.3,
+                  if (!widget.settingsMode) ...[
+                    Text(
+                      'TRAINING EQUIPMENT',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.3,
+                          ),
                     ),
-                  ),
-
-                  const SizedBox(height: 6),
+                    const SizedBox(height: 6),
+                  ],
 
                   Text(
                     'Tell FORGE what equipment '

@@ -471,10 +471,9 @@ class _NoProgramPanel extends StatelessWidget {
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: ForgeSpacing.xl),
-          FilledButton.icon(
+          FilledButton(
             onPressed: isGenerating ? null : onGenerate,
-            icon: const Icon(Icons.auto_awesome),
-            label: isGenerating
+            child: isGenerating
                 ? const SizedBox(
                     width: 20,
                     height: 20,

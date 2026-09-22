@@ -147,11 +147,11 @@ class _TrainAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(title: const Text('TRAIN'));
+    return AppBar(toolbarHeight: 0);
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => Size.zero;
 }
 
 class _ActiveWorkoutCard extends StatelessWidget {
@@ -347,27 +347,6 @@ class _ProgramOverviewCard extends StatelessWidget {
                 child: _ProgramMetric(
                   value: '${program.totalExercises}',
                   label: 'EXERCISES',
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: ForgeSpacing.lg),
-
-          Row(
-            children: [
-              const Icon(
-                Icons.auto_awesome_rounded,
-                size: 17,
-                color: ForgeColors.textMuted,
-              ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  'Generated with FORGE '
-                  '${program.generatorVersion}',
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: ForgeColors.textMuted),
                 ),
               ),
             ],
