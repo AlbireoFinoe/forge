@@ -501,7 +501,7 @@ class _WorkoutContent extends StatelessWidget {
 
           Text(
             '${weekdayLabel(workout.dayOfWeek)} '
-            '? Program v${workout.programVersionNumber}',
+            '\u2022 Program v${workout.programVersionNumber}',
             style: Theme.of(context).textTheme.bodyMedium
                 ?.copyWith(color: ForgeColors.textSecondary),
           ),
@@ -937,8 +937,8 @@ class _WorkoutExerciseCard extends StatelessWidget {
                           const SizedBox(height: 5),
                           Text(
                             '${exercise.targetSets} sets '
-                            '? $reps reps '
-                            '? '
+                            '\u00d7 $reps reps '
+                            '\u2022 '
                             '${exercise.targetRestSeconds}s rest',
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: ForgeColors.textSecondary),
@@ -1181,7 +1181,7 @@ class _WorkoutSetTile extends StatelessWidget {
                       workoutSet.isCompleted
                           ? details.isEmpty
                                 ? 'Completed'
-                                : details.join(' ? ')
+                                : details.join(' \u2022 ')
                           : waitingForRest
                           ? 'Rest before this set'
                           : isReady
@@ -1479,7 +1479,7 @@ class _SetLogSheetState extends State<_SetLogSheet> {
                     final rpe = double.tryParse(input);
 
                     if (rpe == null || rpe < 1 || rpe > 10) {
-                      return 'RPE must be 1?10';
+                      return 'RPE must be 1\u201310';
                     }
 
                     return null;
@@ -1744,7 +1744,7 @@ class _PreviousSetPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  values.isEmpty ? 'Completed' : values.join(' ? '),
+                  values.isEmpty ? 'Completed' : values.join(' \u2022 '),
                   style: Theme.of(context).textTheme.bodyMedium
                       ?.copyWith(fontWeight: FontWeight.w600),
                 ),
