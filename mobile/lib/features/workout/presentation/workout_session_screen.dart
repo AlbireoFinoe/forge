@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/weekdays.dart';
 import '../../../core/theme/forge_theme.dart';
+import '../../exercise/presentation/exercise_detail_sheet.dart';
 import '../data/workout_models.dart';
 import '../data/workout_repository.dart';
 import 'workout_controller.dart';
@@ -926,24 +927,98 @@ class _WorkoutExerciseCard extends StatelessWidget {
                     const SizedBox(width: ForgeSpacing.md),
 
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            exercise.exerciseName,
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w800),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: exercise.exerciseId?.trim().isNotEmpty == true
+                              ? () {
+                                  showExerciseDetailSheet(
+                                    context,
+                                    exerciseId: exercise.exerciseId!.trim(),
+                                    exerciseName: exercise.exerciseName,
+                                    sets: exercise.targetSets,
+                                    minReps: exercise.targetMinReps,
+                                    maxReps: exercise.targetMaxReps,
+                                    restSeconds: exercise.targetRestSeconds,
+                                  );
+                                }
+                              : null,
+                          borderRadius: BorderRadius.circular(ForgeRadius.md),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        exercise.exerciseName,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleLarge
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                      ),
+                                    ),
+                                    if (exercise.exerciseId
+                                            ?.trim()
+                                            .isNotEmpty ==
+                                        true)
+                                      const Padding(
+                                        padding: EdgeInsets.only(left: 6),
+                                        child: Icon(
+                                          Icons.chevron_right_rounded,
+                                          size: 20,
+                                          color: ForgeColors.textMuted,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 5),
+
+                                Text(
+                                  '${exercise.targetSets} sets '
+                                  '\u00d7 $reps reps '
+                                  '\u2022 '
+                                  '${exercise.targetRestSeconds}s rest',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: ForgeColors.textSecondary,
+                                      ),
+                                ),
+
+                                if (exercise.exerciseId?.trim().isNotEmpty ==
+                                    true) ...[
+                                  const SizedBox(height: 5),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.accessibility_new_rounded,
+                                        size: 14,
+                                        color: ForgeColors.primary,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        'View target muscles',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelSmall
+                                            ?.copyWith(
+                                              color: ForgeColors.primary,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 5),
-                          Text(
-                            '${exercise.targetSets} sets '
-                            '\u00d7 $reps reps '
-                            '\u2022 '
-                            '${exercise.targetRestSeconds}s rest',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: ForgeColors.textSecondary),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
 
