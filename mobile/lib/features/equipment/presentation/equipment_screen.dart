@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/forge_theme.dart';
+
 import '../data/equipment_models.dart';
 import '../data/equipment_repository.dart';
 import 'equipment_controller.dart';
@@ -146,33 +148,55 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
 
     return Scaffold(
       appBar: widget.settingsMode
-          ? AppBar(title: const Text('Equipment'))
+          ? AppBar(title: const Text('EQUIPMENT'))
           : null,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            ForgeSpacing.xl,
+            ForgeSpacing.lg,
+            ForgeSpacing.xl,
+            ForgeSpacing.xxl + MediaQuery.paddingOf(context).bottom,
+          ),
+          child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 640),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'What equipment do you have?',
-                    style: Theme.of(context).textTheme.headlineMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    'TRAINING EQUIPMENT',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.3,
+                    ),
                   ),
-                  const SizedBox(height: 8),
+
+                  const SizedBox(height: 6),
+
                   Text(
-                    'Choose the setup that best matches where you train.',
-                    style: Theme.of(context).textTheme.bodyLarge,
+                    'Tell FORGE what equipment '
+                    'you actually have access to.',
+                    style: Theme.of(context).textTheme.bodyLarge
+                        ?.copyWith(color: ForgeColors.textSecondary),
                   ),
-                  const SizedBox(height: 32),
+
+                  const SizedBox(height: ForgeSpacing.xl),
+
+                  Text(
+                    'TRAINING ENVIRONMENT',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+
+                  const SizedBox(height: ForgeSpacing.md),
 
                   _EquipmentModeCard(
                     title: 'Full Gym',
-                    description: 'Choose this if you have access to a fully equipped gym with machines, free weights, cables, benches, and other common equipment.',
-                    icon: Icons.fitness_center,
+                    description: 'Access to machines, free weights, cables, benches and standard gym equipment.',
+                    icon: Icons.fitness_center_rounded,
                     selected: _mode == _EquipmentMode.fullGym,
                     enabled: !_isSubmitting,
                     onTap: () {
@@ -180,12 +204,12 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
                     },
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: ForgeSpacing.md),
 
                   _EquipmentModeCard(
                     title: 'Custom Equipment',
-                    description: 'Choose this if you only have access to specific equipment at home or at a limited gym.',
-                    icon: Icons.tune,
+                    description: 'Choose exactly which equipment is available at home or in a limited gym.',
+                    icon: Icons.tune_rounded,
                     selected: _mode == _EquipmentMode.custom,
                     enabled: !_isSubmitting,
                     onTap: () {
@@ -194,40 +218,94 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
                   ),
 
                   if (_mode == _EquipmentMode.custom) ...[
-                    const SizedBox(height: 32),
+                    const SizedBox(height: ForgeSpacing.xxl),
 
-                    Text(
-                      'Select your equipment',
-                      style: Theme.of(context).textTheme.titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                    Row(
+                      children: [
+                        Text(
+                          'AVAILABLE EQUIPMENT',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                              ),
+                        ),
+
+                        const Spacer(),
+
+                        Text(
+                          '${_customSelectedCodes.length} SELECTED',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: ForgeColors.textMuted,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _customSelectedCodes.isEmpty
-                          ? 'Select at least one item.'
-                          : '${_customSelectedCodes.length} selected',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: ForgeSpacing.md),
 
-                    for (final equipment in customEquipment)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _EquipmentTile(
-                          equipment: equipment,
-                          selected: _customSelectedCodes.contains(
-                            equipment.code,
+                    if (_customSelectedCodes.isEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.all(ForgeSpacing.md),
+                        decoration: BoxDecoration(
+                          color: ForgeColors.warning.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(ForgeRadius.md),
+                          border: Border.all(
+                            color: ForgeColors.warning.withValues(alpha: 0.18),
                           ),
-                          enabled: !_isSubmitting,
-                          onChanged: (selected) {
-                            _toggleCustomEquipment(equipment, selected);
-                          },
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.info_outline_rounded,
+                              size: 18,
+                              color: ForgeColors.warning,
+                            ),
+                            const SizedBox(width: ForgeSpacing.sm),
+                            Expanded(
+                              child: Text(
+                                'Select at least one '
+                                'equipment item.',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: ForgeColors.textSecondary,
+                                    ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+
+                      const SizedBox(height: ForgeSpacing.md),
+                    ],
+
+                    for (
+                      var index = 0;
+                      index < customEquipment.length;
+                      index++
+                    ) ...[
+                      _EquipmentTile(
+                        equipment: customEquipment[index],
+                        selected: _customSelectedCodes.contains(
+                          customEquipment[index].code,
+                        ),
+                        enabled: !_isSubmitting,
+                        onChanged: (selected) {
+                          _toggleCustomEquipment(
+                            customEquipment[index],
+                            selected,
+                          );
+                        },
+                      ),
+
+                      if (index < customEquipment.length - 1)
+                        const SizedBox(height: ForgeSpacing.sm),
+                    ],
                   ],
 
-                  const SizedBox(height: 32),
+                  const SizedBox(height: ForgeSpacing.xxl),
 
                   FilledButton(
                     onPressed: _canContinue ? _continue : null,
@@ -240,7 +318,7 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : Text(
-                              widget.settingsMode ? 'Save Changes' : 'Continue',
+                              widget.settingsMode ? 'SAVE CHANGES' : 'CONTINUE',
                             ),
                     ),
                   ),
@@ -273,52 +351,106 @@ class _EquipmentModeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Material(
       color: selected
-          ? colorScheme.primaryContainer
-          : colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(16),
+          ? ForgeColors.primary.withValues(alpha: 0.06)
+          : ForgeColors.surface,
+      borderRadius: BorderRadius.circular(ForgeRadius.lg),
       child: InkWell(
         onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        child: Container(
+          padding: const EdgeInsets.all(ForgeSpacing.lg),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(ForgeRadius.lg),
+            border: Border.all(
+              color: selected ? ForgeColors.primary : ForgeColors.outline,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                icon,
-                size: 28,
-                color: selected
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
+              Container(
+                width: 46,
+                height: 46,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? ForgeColors.primary.withValues(alpha: 0.12)
+                      : ForgeColors.surfaceRaised,
+                  borderRadius: BorderRadius.circular(ForgeRadius.md),
+                ),
+                child: Icon(
+                  icon,
+                  size: 23,
+                  color: selected
+                      ? ForgeColors.primary
+                      : ForgeColors.textSecondary,
+                ),
               ),
-              const SizedBox(width: 16),
+
+              const SizedBox(width: ForgeSpacing.md),
+
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+
+                        if (selected)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: ForgeColors.primary.withValues(
+                                alpha: 0.10,
+                              ),
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                            child: Text(
+                              'SELECTED',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: ForgeColors.primary,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 9,
+                                  ),
+                            ),
+                          ),
+                      ],
                     ),
+
                     const SizedBox(height: 6),
+
                     Text(
                       description,
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: ForgeColors.textSecondary,
+                        height: 1.4,
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+
+              const SizedBox(width: 8),
+
               Icon(
-                selected ? Icons.radio_button_checked : Icons.radio_button_off,
-                color: selected
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_off_rounded,
+                color: selected ? ForgeColors.primary : ForgeColors.textMuted,
               ),
             ],
           ),
@@ -343,8 +475,18 @@ class _EquipmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
+    return Container(
+      decoration: BoxDecoration(
+        color: selected
+            ? ForgeColors.primary.withValues(alpha: 0.04)
+            : ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.md),
+        border: Border.all(
+          color: selected
+              ? ForgeColors.primary.withValues(alpha: 0.35)
+              : ForgeColors.outline,
+        ),
+      ),
       child: CheckboxListTile(
         value: selected,
         onChanged: enabled
@@ -352,9 +494,32 @@ class _EquipmentTile extends StatelessWidget {
                 onChanged(value ?? false);
               }
             : null,
-        title: Text(equipment.name),
-        secondary: const Icon(Icons.fitness_center),
+        activeColor: ForgeColors.primary,
+        checkColor: Colors.black,
+        title: Text(
+          equipment.name,
+          style: Theme.of(context).textTheme.titleSmall
+              ?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        secondary: Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: ForgeColors.surfaceRaised,
+            borderRadius: BorderRadius.circular(ForgeRadius.sm),
+          ),
+          child: Icon(
+            Icons.fitness_center_rounded,
+            size: 20,
+            color: selected ? ForgeColors.primary : ForgeColors.textSecondary,
+          ),
+        ),
         controlAffinity: ListTileControlAffinity.trailing,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: ForgeSpacing.md,
+          vertical: 4,
+        ),
       ),
     );
   }

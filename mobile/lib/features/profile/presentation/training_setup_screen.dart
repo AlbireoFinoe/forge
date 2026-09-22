@@ -7,7 +7,6 @@ import '../../equipment/presentation/equipment_controller.dart';
 import '../../equipment/presentation/equipment_screen.dart';
 import '../../muscles/presentation/muscle_priority_controller.dart';
 import '../../muscles/presentation/muscle_priority_screen.dart';
-import '../../sports/presentation/sports_setup_screen.dart';
 import 'experience_level_screen.dart';
 import 'profile_controller.dart';
 import '../../onboarding/presentation/goal_selection_screen.dart';
@@ -133,31 +132,6 @@ class TrainingSetupScreen extends StatelessWidget {
                     MaterialPageRoute<void>(
                       builder: (_) {
                         return const _EquipmentSettingsPage();
-                      },
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-
-          const SizedBox(height: ForgeSpacing.xxl),
-
-          const _SetupSectionLabel(label: 'OTHER ACTIVITIES'),
-
-          const SizedBox(height: ForgeSpacing.md),
-
-          _SetupGroup(
-            children: [
-              _SetupTile(
-                icon: Icons.sports_mma_rounded,
-                title: 'Sports Activities',
-                subtitle: 'Boxing, running and other sports',
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) {
-                        return const SportsSetupScreen(settingsMode: true);
                       },
                     ),
                   );
