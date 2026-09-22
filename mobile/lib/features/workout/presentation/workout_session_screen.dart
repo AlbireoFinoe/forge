@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/weekdays.dart';
+import '../../../core/theme/forge_theme.dart';
 import '../data/workout_models.dart';
 import '../data/workout_repository.dart';
 import 'workout_controller.dart';
@@ -374,7 +375,7 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
     final workout = ref.watch(workoutControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Workout')),
+      appBar: AppBar(title: const Text('WORKOUT')),
       bottomNavigationBar:
           _restRemainingSeconds > 0 && _restExerciseName != null
           ? SafeArea(
@@ -469,98 +470,242 @@ class _WorkoutContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final completedExercises = workout.exercises
+    final resolvedExercises = workout.exercises
         .where((exercise) => exercise.isCompleted || exercise.isSkipped)
         .length;
 
+    final exerciseProgress = workout.exercises.isEmpty
+        ? 0.0
+        : resolvedExercises / workout.exercises.length;
+
+    final setProgress = workout.totalSets == 0
+        ? 0.0
+        : workout.completedSets / workout.totalSets;
+
     return SafeArea(
       child: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(
+          ForgeSpacing.lg,
+          ForgeSpacing.lg,
+          ForgeSpacing.lg,
+          ForgeSpacing.xxl,
+        ),
         children: [
           Text(
-            workout.dayName,
+            workout.dayName.toUpperCase(),
             style: Theme.of(context).textTheme.headlineMedium
-                ?.copyWith(fontWeight: FontWeight.bold),
+                ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.5),
           ),
-          const SizedBox(height: 6),
-          Text(
-            '${weekdayLabel(workout.dayOfWeek)} • '
-            'Program v${workout.programVersionNumber}',
-          ),
-          const SizedBox(height: 24),
 
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
+          const SizedBox(height: 6),
+
+          Text(
+            '${weekdayLabel(workout.dayOfWeek)} '
+            '? Program v${workout.programVersionNumber}',
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: ForgeColors.textSecondary),
+          ),
+
+          const SizedBox(height: ForgeSpacing.xl),
+
+          _WorkoutProgressPanel(
+            completedExercises: resolvedExercises,
+            totalExercises: workout.exercises.length,
+            completedSets: workout.completedSets,
+            totalSets: workout.totalSets,
+            exerciseProgress: exerciseProgress,
+            setProgress: setProgress,
+          ),
+
+          const SizedBox(height: ForgeSpacing.xl),
+
+          Text(
+            'EXERCISES',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: ForgeColors.textSecondary,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+            ),
+          ),
+
+          const SizedBox(height: ForgeSpacing.md),
+
+          for (var index = 0; index < workout.exercises.length; index++) ...[
+            _WorkoutExerciseCard(
+              exercise: workout.exercises[index],
+              exerciseNumber: index + 1,
+              isResting:
+                  restRemainingSeconds > 0 &&
+                  restExerciseId == workout.exercises[index].id,
+              onLogSet: (set) {
+                onLogSet(workout.exercises[index], set);
+              },
+              onSkip: () {
+                onSkipExercise(workout.exercises[index]);
+              },
+            ),
+
+            if (index < workout.exercises.length - 1)
+              const SizedBox(height: ForgeSpacing.md),
+          ],
+
+          const SizedBox(height: ForgeSpacing.xl),
+
+          if (workout.pendingExercises > 0)
+            Container(
+              margin: const EdgeInsets.only(bottom: ForgeSpacing.md),
+              padding: const EdgeInsets.all(ForgeSpacing.md),
+              decoration: BoxDecoration(
+                color: ForgeColors.surface,
+                borderRadius: BorderRadius.circular(ForgeRadius.md),
+                border: Border.all(color: ForgeColors.outline),
+              ),
               child: Row(
                 children: [
-                  Expanded(
-                    child: _ProgressStat(
-                      label: 'Exercises',
-                      value: '$completedExercises/${workout.exercises.length}',
-                    ),
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    size: 18,
+                    color: ForgeColors.textSecondary,
                   ),
+                  const SizedBox(width: ForgeSpacing.sm),
                   Expanded(
-                    child: _ProgressStat(
-                      label: 'Sets',
-                      value: '${workout.completedSets}/${workout.totalSets}',
+                    child: Text(
+                      'Complete or skip '
+                      '${workout.pendingExercises} '
+                      'remaining '
+                      '${workout.pendingExercises == 1 ? 'exercise' : 'exercises'} '
+                      'before finishing.',
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
                 ],
               ),
             ),
-          ),
 
-          const SizedBox(height: 24),
-
-          for (final exercise in workout.exercises)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: _WorkoutExerciseCard(
-                exercise: exercise,
-                isResting:
-                    restRemainingSeconds > 0 && restExerciseId == exercise.id,
-                onLogSet: (set) {
-                  onLogSet(exercise, set);
-                },
-                onSkip: () {
-                  onSkipExercise(exercise);
-                },
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: workout.pendingExercises == 0 && !isFinishing
+                  ? onFinish
+                  : null,
+              icon: const Icon(Icons.flag_rounded),
+              label: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: isFinishing
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.black,
+                        ),
+                      )
+                    : const Text('FINISH WORKOUT'),
               ),
-            ),
-
-          const SizedBox(height: 8),
-
-          if (workout.pendingExercises > 0)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                'Complete or skip '
-                '${workout.pendingExercises} remaining '
-                '${workout.pendingExercises == 1 ? 'exercise' : 'exercises'} '
-                'before finishing.',
-                textAlign: TextAlign.center,
-              ),
-            ),
-
-          FilledButton.icon(
-            onPressed: workout.pendingExercises == 0 && !isFinishing
-                ? onFinish
-                : null,
-            icon: const Icon(Icons.flag_outlined),
-            label: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              child: isFinishing
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Finish Workout'),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _WorkoutProgressPanel extends StatelessWidget {
+  const _WorkoutProgressPanel({
+    required this.completedExercises,
+    required this.totalExercises,
+    required this.completedSets,
+    required this.totalSets,
+    required this.exerciseProgress,
+    required this.setProgress,
+  });
+
+  final int completedExercises;
+  final int totalExercises;
+  final int completedSets;
+  final int totalSets;
+
+  final double exerciseProgress;
+  final double setProgress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.lg),
+      decoration: BoxDecoration(
+        color: ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      child: Column(
+        children: [
+          _ProgressRow(
+            label: 'EXERCISES',
+            value: '$completedExercises / $totalExercises',
+            progress: exerciseProgress,
+          ),
+
+          const SizedBox(height: ForgeSpacing.lg),
+
+          _ProgressRow(
+            label: 'SETS',
+            value: '$completedSets / $totalSets',
+            progress: setProgress,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressRow extends StatelessWidget {
+  const _ProgressRow({
+    required this.label,
+    required this.value,
+    required this.progress,
+  });
+
+  final String label;
+  final String value;
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: ForgeColors.textSecondary,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1,
+                ),
+              ),
+            ),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: ForgeColors.primary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 8),
+
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 6,
+            backgroundColor: ForgeColors.surfaceRaised,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -587,49 +732,103 @@ class _RestTimerCard extends StatelessWidget {
         ? 0.0
         : (remainingSeconds / totalSeconds).clamp(0.0, 1.0).toDouble();
 
-    return Material(
-      elevation: 10,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.timer_outlined, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    exerciseName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+    return Container(
+      decoration: const BoxDecoration(
+        color: ForgeColors.surfaceRaised,
+        border: Border(top: BorderSide(color: ForgeColors.outlineStrong)),
+      ),
+      padding: const EdgeInsets.fromLTRB(
+        ForgeSpacing.lg,
+        ForgeSpacing.md,
+        ForgeSpacing.lg,
+        ForgeSpacing.sm,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: ForgeColors.warning.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(ForgeRadius.sm),
                 ),
-                Text(
-                  _formatRestTime(remainingSeconds),
-                  style: Theme.of(context).textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                child: const Icon(
+                  Icons.timer_outlined,
+                  size: 20,
+                  color: ForgeColors.warning,
                 ),
-              ],
+              ),
+
+              const SizedBox(width: ForgeSpacing.md),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'RESTING',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: ForgeColors.warning,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      exerciseName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+
+              Text(
+                _formatRestTime(remainingSeconds),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: ForgeColors.warning,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: ForgeSpacing.sm),
+
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 4,
+              color: ForgeColors.warning,
+              backgroundColor: ForgeColors.surfaceSoft,
             ),
+          ),
 
-            const SizedBox(height: 6),
+          const SizedBox(height: 2),
 
-            LinearProgressIndicator(value: progress, minHeight: 4),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(onPressed: onSkip, child: const Text('Skip')),
-                TextButton.icon(
-                  onPressed: onAddThirtySeconds,
-                  icon: const Icon(Icons.add, size: 17),
-                  label: const Text('30s'),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: onSkip,
+                style: TextButton.styleFrom(
+                  foregroundColor: ForgeColors.textSecondary,
                 ),
-              ],
-            ),
-          ],
-        ),
+                child: const Text('SKIP'),
+              ),
+              TextButton.icon(
+                onPressed: onAddThirtySeconds,
+                icon: const Icon(Icons.add_rounded, size: 17),
+                label: const Text('+30S'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -637,45 +836,27 @@ class _RestTimerCard extends StatelessWidget {
 
 String _formatRestTime(int seconds) {
   final minutes = seconds ~/ 60;
+
   final remaining = (seconds % 60).toString().padLeft(2, '0');
 
   return '${minutes.toString().padLeft(2, '0')}:$remaining';
 }
 
-class _ProgressStat extends StatelessWidget {
-  const _ProgressStat({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: Theme.of(context).textTheme.titleLarge
-              ?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 4),
-        Text(label),
-      ],
-    );
-  }
-}
-
 class _WorkoutExerciseCard extends StatelessWidget {
   const _WorkoutExerciseCard({
     required this.exercise,
+    required this.exerciseNumber,
     required this.isResting,
     required this.onLogSet,
     required this.onSkip,
   });
 
   final WorkoutExerciseData exercise;
+  final int exerciseNumber;
   final bool isResting;
 
   final ValueChanged<WorkoutSetData> onLogSet;
+
   final VoidCallback onSkip;
 
   @override
@@ -695,94 +876,192 @@ class _WorkoutExerciseCard extends StatelessWidget {
       }
     }
 
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    final resolved = exercise.isCompleted || exercise.isSkipped;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: resolved
+            ? ForgeColors.surface.withValues(alpha: 0.72)
+            : ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(
+          color: exercise.isCompleted
+              ? ForgeColors.success.withValues(alpha: 0.24)
+              : isResting
+              ? ForgeColors.warning.withValues(alpha: 0.32)
+              : ForgeColors.outline,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              ForgeSpacing.lg,
+              ForgeSpacing.lg,
+              ForgeSpacing.lg,
+              ForgeSpacing.md,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    exercise.exerciseName,
-                    style: Theme.of(context).textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: ForgeColors.surfaceRaised,
+                        borderRadius: BorderRadius.circular(ForgeRadius.sm),
+                      ),
+                      child: Text(
+                        '$exerciseNumber',
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+
+                    const SizedBox(width: ForgeSpacing.md),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            exercise.exerciseName,
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            '${exercise.targetSets} sets '
+                            '? $reps reps '
+                            '? '
+                            '${exercise.targetRestSeconds}s rest',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: ForgeColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    _ExerciseStatusBadge(
+                      exercise: exercise,
+                      isResting: isResting,
+                    ),
+                  ],
                 ),
-                _ExerciseStatusChip(exercise: exercise),
               ],
             ),
+          ),
 
-            const SizedBox(height: 8),
+          const Divider(height: 1),
 
-            Text(
-              '${exercise.targetSets} sets '
-              '\u00d7 $reps reps '
-              '\u2022 '
-              '${exercise.targetRestSeconds} sec rest',
+          Padding(
+            padding: const EdgeInsets.all(ForgeSpacing.md),
+            child: Column(
+              children: [
+                for (var index = 0; index < exercise.sets.length; index++) ...[
+                  _WorkoutSetTile(
+                    workoutSet: exercise.sets[index],
+                    enabled: !exercise.isSkipped,
+                    isReady: readySetId == exercise.sets[index].id,
+                    isResting: isResting,
+                    onTap: () {
+                      onLogSet(exercise.sets[index]);
+                    },
+                  ),
+
+                  if (index < exercise.sets.length - 1)
+                    const SizedBox(height: 8),
+                ],
+              ],
             ),
+          ),
 
-            const SizedBox(height: 20),
+          if (exercise.isPending) ...[
+            const Divider(height: 1),
 
-            for (final workoutSet in exercise.sets)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _WorkoutSetTile(
-                  workoutSet: workoutSet,
-                  enabled: !exercise.isSkipped,
-                  isReady: readySetId == workoutSet.id,
-                  isResting: isResting,
-                  onTap: () {
-                    onLogSet(workoutSet);
-                  },
-                ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                ForgeSpacing.md,
+                ForgeSpacing.xs,
+                ForgeSpacing.md,
+                ForgeSpacing.xs,
               ),
-
-            if (exercise.isPending) ...[
-              const SizedBox(height: 8),
-              Align(
+              child: Align(
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(
                   onPressed: onSkip,
-                  icon: const Icon(Icons.skip_next),
-                  label: const Text('Skip Exercise'),
+                  icon: const Icon(Icons.skip_next_rounded, size: 18),
+                  label: const Text('Skip exercise'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: ForgeColors.textSecondary,
+                  ),
                 ),
               ),
-            ],
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
 }
 
-class _ExerciseStatusChip extends StatelessWidget {
-  const _ExerciseStatusChip({required this.exercise});
+class _ExerciseStatusBadge extends StatelessWidget {
+  const _ExerciseStatusBadge({required this.exercise, required this.isResting});
 
   final WorkoutExerciseData exercise;
+  final bool isResting;
 
   @override
   Widget build(BuildContext context) {
+    late final String label;
+    late final Color color;
+    late final IconData? icon;
+
     if (exercise.isCompleted) {
-      return const Chip(
-        avatar: Icon(Icons.check, size: 18),
-        label: Text('Completed'),
-      );
+      label = 'DONE';
+      color = ForgeColors.success;
+      icon = Icons.check_rounded;
+    } else if (exercise.isSkipped) {
+      label = 'SKIPPED';
+      color = ForgeColors.textMuted;
+      icon = Icons.skip_next_rounded;
+    } else if (isResting) {
+      label = 'REST';
+      color = ForgeColors.warning;
+      icon = Icons.timer_outlined;
+    } else {
+      label = '${exercise.completedSetCount}/${exercise.sets.length}';
+      color = ForgeColors.primary;
+      icon = null;
     }
 
-    if (exercise.isSkipped) {
-      return const Chip(
-        avatar: Icon(Icons.skip_next, size: 18),
-        label: Text('Skipped'),
-      );
-    }
-
-    return Chip(
-      label: Text(
-        '${exercise.completedSetCount}'
-        '/${exercise.sets.length} sets',
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall
+                ?.copyWith(color: color, fontWeight: FontWeight.w800),
+          ),
+        ],
       ),
     );
   }
@@ -801,12 +1080,12 @@ class _WorkoutSetTile extends StatelessWidget {
   final bool enabled;
   final bool isReady;
   final bool isResting;
+
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final details = <String>[];
-    final colorScheme = Theme.of(context).colorScheme;
 
     if (workoutSet.weightKg != null) {
       details.add('${_formatNumber(workoutSet.weightKg!)} kg');
@@ -825,36 +1104,158 @@ class _WorkoutSetTile extends StatelessWidget {
     final canOpen =
         enabled && (workoutSet.isCompleted || (isReady && !isResting));
 
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      tileColor: isReady ? colorScheme.primaryContainer : null,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      leading: CircleAvatar(child: Text('${workoutSet.setNumber}')),
-      title: Text(
-        'Set ${workoutSet.setNumber}',
-        style: TextStyle(fontWeight: isReady ? FontWeight.bold : null),
-      ),
-      subtitle: Text(
-        workoutSet.isCompleted
-            ? details.join(' \u2022 ')
-            : waitingForRest
-            ? 'Rest before this set'
-            : isReady
-            ? 'Ready to log'
-            : 'Complete previous set first',
-      ),
-      trailing: workoutSet.isCompleted
-          ? const Icon(Icons.check_circle)
-          : waitingForRest
-          ? const Chip(
-              avatar: Icon(Icons.timer_outlined, size: 17),
-              label: Text('RESTING'),
-            )
+    final Color borderColor;
+
+    if (workoutSet.isCompleted) {
+      borderColor = ForgeColors.success.withValues(alpha: 0.24);
+    } else if (waitingForRest) {
+      borderColor = ForgeColors.warning.withValues(alpha: 0.28);
+    } else if (isReady) {
+      borderColor = ForgeColors.primary.withValues(alpha: 0.40);
+    } else {
+      borderColor = ForgeColors.outline;
+    }
+
+    return Material(
+      color: workoutSet.isCompleted
+          ? ForgeColors.success.withValues(alpha: 0.05)
           : isReady
-          ? const Chip(label: Text('READY'))
-          : const Icon(Icons.lock_outline),
-      enabled: canOpen,
-      onTap: canOpen ? onTap : null,
+          ? ForgeColors.primary.withValues(alpha: 0.06)
+          : ForgeColors.surfaceRaised,
+      borderRadius: BorderRadius.circular(ForgeRadius.md),
+      child: InkWell(
+        onTap: canOpen ? onTap : null,
+        borderRadius: BorderRadius.circular(ForgeRadius.md),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: ForgeSpacing.md,
+            vertical: 13,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(ForgeRadius.md),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: workoutSet.isCompleted
+                      ? ForgeColors.success.withValues(alpha: 0.12)
+                      : ForgeColors.surfaceSoft,
+                  shape: BoxShape.circle,
+                ),
+                child: workoutSet.isCompleted
+                    ? const Icon(
+                        Icons.check_rounded,
+                        size: 18,
+                        color: ForgeColors.success,
+                      )
+                    : Text(
+                        '${workoutSet.setNumber}',
+                        style: Theme.of(context).textTheme.labelLarge
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+              ),
+
+              const SizedBox(width: ForgeSpacing.md),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SET ${workoutSet.setNumber}',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: workoutSet.isCompleted
+                            ? ForgeColors.textSecondary
+                            : ForgeColors.textPrimary,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.7,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      workoutSet.isCompleted
+                          ? details.isEmpty
+                                ? 'Completed'
+                                : details.join(' ? ')
+                          : waitingForRest
+                          ? 'Rest before this set'
+                          : isReady
+                          ? 'Ready to log'
+                          : 'Complete previous set first',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: workoutSet.isCompleted
+                            ? ForgeColors.textSecondary
+                            : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 8),
+
+              if (workoutSet.isCompleted)
+                const Icon(
+                  Icons.edit_outlined,
+                  size: 18,
+                  color: ForgeColors.textMuted,
+                )
+              else if (waitingForRest)
+                _SetStateBadge(
+                  label: 'REST',
+                  color: ForgeColors.warning,
+                  icon: Icons.timer_outlined,
+                )
+              else if (isReady)
+                const _SetStateBadge(label: 'READY', color: ForgeColors.primary)
+              else
+                const Icon(
+                  Icons.lock_outline_rounded,
+                  size: 18,
+                  color: ForgeColors.textMuted,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SetStateBadge extends StatelessWidget {
+  const _SetStateBadge({required this.label, required this.color, this.icon});
+
+  final String label;
+  final Color color;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 12, color: color),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall
+                ?.copyWith(color: color, fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
     );
   }
 }
