@@ -138,11 +138,14 @@ class TrainScreen extends ConsumerWidget {
               _WeeklySchedule(
                 program: program,
                 currentWorkout: workout,
-                onOpenProgram: () {
+                onOpenProgram: (day) {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) {
-                        return ProgramDetailScreen(program: program);
+                        return ProgramDetailScreen(
+                          program: program,
+                          initialDayId: day.id,
+                        );
                       },
                     ),
                   );
@@ -424,7 +427,7 @@ class _WeeklySchedule extends StatelessWidget {
 
   final ProgramDetailData program;
   final WorkoutSessionData? currentWorkout;
-  final VoidCallback onOpenProgram;
+  final ValueChanged<ProgramDayData> onOpenProgram;
 
   @override
   Widget build(BuildContext context) {
@@ -437,7 +440,9 @@ class _WeeklySchedule extends StatelessWidget {
           _TrainDayCard(
             day: days[index],
             isCurrent: currentWorkout?.programDayId == days[index].id,
-            onTap: onOpenProgram,
+            onTap: () {
+              onOpenProgram(days[index]);
+            },
           ),
           if (index < days.length - 1) const SizedBox(height: ForgeSpacing.sm),
         ],

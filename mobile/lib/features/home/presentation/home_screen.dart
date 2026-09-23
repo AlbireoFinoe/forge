@@ -307,11 +307,14 @@ class _HomeContent extends StatelessWidget {
 
                     _UpNextSection(
                       program: program,
-                      onOpenProgram: () {
+                      onOpenProgram: (day) {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) {
-                              return ProgramDetailScreen(program: program);
+                              return ProgramDetailScreen(
+                                program: program,
+                                initialDayId: day.id,
+                              );
                             },
                           ),
                         );
@@ -715,7 +718,7 @@ class _UpNextSection extends StatelessWidget {
   const _UpNextSection({required this.program, required this.onOpenProgram});
 
   final ProgramDetailData program;
-  final VoidCallback onOpenProgram;
+  final ValueChanged<ProgramDayData> onOpenProgram;
 
   ProgramDayData? _nextSession() {
     if (program.days.isEmpty) {
@@ -801,7 +804,9 @@ class _UpNextSection extends StatelessWidget {
           color: ForgeColors.surface,
           borderRadius: BorderRadius.circular(ForgeRadius.lg),
           child: InkWell(
-            onTap: onOpenProgram,
+            onTap: () {
+              onOpenProgram(next);
+            },
             borderRadius: BorderRadius.circular(ForgeRadius.lg),
             child: Container(
               padding: const EdgeInsets.all(ForgeSpacing.lg),

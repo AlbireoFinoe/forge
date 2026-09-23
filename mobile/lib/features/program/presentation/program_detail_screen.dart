@@ -11,9 +11,14 @@ import '../../workout/presentation/workout_session_screen.dart';
 import '../data/program_models.dart';
 
 class ProgramDetailScreen extends ConsumerStatefulWidget {
-  const ProgramDetailScreen({required this.program, super.key});
+  const ProgramDetailScreen({
+    required this.program,
+    this.initialDayId,
+    super.key,
+  });
 
   final ProgramDetailData program;
+  final String? initialDayId;
 
   @override
   ConsumerState<ProgramDetailScreen> createState() =>
@@ -22,6 +27,9 @@ class ProgramDetailScreen extends ConsumerStatefulWidget {
 
 class _ProgramDetailScreenState extends ConsumerState<ProgramDetailScreen> {
   String? _startingDayId;
+
+  final GlobalKey _initialDayKey = GlobalKey();
+  bool _didScheduleInitialFocus = false;
 
   Future<void> _openWorkout() async {
     await Navigator.of(context).push(
@@ -81,9 +89,38 @@ class _ProgramDetailScreenState extends ConsumerState<ProgramDetailScreen> {
     final days = [...program.days]
       ..sort((left, right) => left.dayOrder.compareTo(right.dayOrder));
 
+    final initialDayId =
+        widget.initialDayId != null &&
+            days.any((day) => day.id == widget.initialDayId)
+        ? widget.initialDayId
+        : null;
+
     final workoutState = ref.watch(workoutControllerProvider);
 
     final currentWorkout = workoutState.value?.currentWorkout;
+
+    if (!_didScheduleInitialFocus && initialDayId != null) {
+      _didScheduleInitialFocus = true;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+
+        final targetContext = _initialDayKey.currentContext;
+
+        if (targetContext == null) {
+          return;
+        }
+
+        Scrollable.ensureVisible(
+          targetContext,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          alignment: 0.08,
+        );
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('TRAINING PROGRAM')),
@@ -109,8 +146,13 @@ class _ProgramDetailScreenState extends ConsumerState<ProgramDetailScreen> {
 
             for (var index = 0; index < days.length; index++) ...[
               _ProgramDayCard(
+                key: days[index].id == initialDayId ? _initialDayKey : null,
                 day: days[index],
                 currentWorkout: currentWorkout,
+                initiallyExpanded: initialDayId != null
+                    ? days[index].id == initialDayId
+                    : currentWorkout?.programDayId == days[index].id ||
+                          days[index].dayOrder == 1,
                 isStarting: _startingDayId == days[index].id,
                 startBlocked: _startingDayId != null,
                 onStart: () {
@@ -254,16 +296,19 @@ class _ProgramDayCard extends StatelessWidget {
   const _ProgramDayCard({
     required this.day,
     required this.currentWorkout,
+    required this.initiallyExpanded,
     required this.isStarting,
     required this.startBlocked,
     required this.onStart,
     required this.onResume,
+    super.key,
   });
 
   final ProgramDayData day;
 
   final WorkoutSessionData? currentWorkout;
 
+  final bool initiallyExpanded;
   final bool isStarting;
   final bool startBlocked;
 
@@ -296,7 +341,7 @@ class _ProgramDayCard extends StatelessWidget {
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          initiallyExpanded: isCurrentWorkout || day.dayOrder == 1,
+          initiallyExpanded: initiallyExpanded,
           tilePadding: const EdgeInsets.fromLTRB(
             ForgeSpacing.lg,
             ForgeSpacing.md,
