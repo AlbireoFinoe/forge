@@ -17,3 +17,23 @@ final progressOverviewProvider = FutureProvider<ProgressOverviewData>((
 
   return repository.getOverview();
 });
+
+final exerciseProgressProvider =
+    FutureProvider.family<ExerciseProgressData, String>((
+      ref,
+      exerciseCode,
+    ) async {
+      final repository = ref.read(progressRepositoryProvider);
+
+      return repository.getExerciseProgress(exerciseCode);
+    });
+
+final exerciseProgressHistoryProvider =
+    FutureProvider.family<List<ExerciseHistoryItemData>, String>((
+      ref,
+      exerciseCode,
+    ) async {
+      final repository = ref.read(progressRepositoryProvider);
+
+      return repository.getExerciseHistory(exerciseCode);
+    });

@@ -6,6 +6,7 @@ import '../../../core/theme/forge_theme.dart';
 import '../../program/presentation/program_controller.dart';
 import '../../workout/data/workout_models.dart';
 import '../data/progress_models.dart';
+import 'exercise_progress_detail_screen.dart';
 import 'progress_provider.dart';
 import '../../workout/presentation/workout_controller.dart';
 import '../../workout/presentation/workout_history_screen.dart';
@@ -517,7 +518,22 @@ class _ExerciseProgressSection extends StatelessWidget {
             const SizedBox(height: ForgeSpacing.md),
 
             for (var index = 0; index < visible.length; index++) ...[
-              _ExerciseProgressRow(exercise: visible[index]),
+              _ExerciseProgressRow(
+                exercise: visible[index],
+                onTap: visible[index].historyEntries > 0
+                    ? () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) {
+                              return ExerciseProgressDetailScreen(
+                                exerciseCode: visible[index].exerciseCode,
+                              );
+                            },
+                          ),
+                        );
+                      }
+                    : null,
+              ),
 
               if (index < visible.length - 1)
                 const SizedBox(height: ForgeSpacing.sm),
@@ -635,9 +651,10 @@ class _TrendCountChip extends StatelessWidget {
 }
 
 class _ExerciseProgressRow extends StatelessWidget {
-  const _ExerciseProgressRow({required this.exercise});
+  const _ExerciseProgressRow({required this.exercise, required this.onTap});
 
   final ProgressOverviewItemData exercise;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -655,77 +672,93 @@ class _ExerciseProgressRow extends StatelessWidget {
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(ForgeSpacing.lg),
-      decoration: BoxDecoration(
-        color: ForgeColors.surface,
+    return Material(
+      color: ForgeColors.surface,
+      borderRadius: BorderRadius.circular(ForgeRadius.md),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(ForgeRadius.md),
-        border: Border.all(color: ForgeColors.outline),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: trend.color.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(ForgeRadius.sm),
-            ),
-            child: Icon(trend.icon, size: 20, color: trend.color),
+        child: Container(
+          padding: const EdgeInsets.all(ForgeSpacing.lg),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(ForgeRadius.md),
+            border: Border.all(color: ForgeColors.outline),
           ),
-
-          const SizedBox(width: ForgeSpacing.md),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  exercise.exerciseName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-
-                const SizedBox(height: 4),
-
-                Text(
-                  details.join(' \u2022 '),
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: ForgeColors.textSecondary),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(width: ForgeSpacing.sm),
-
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          child: Row(
             children: [
-              Text(
-                trend.label,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: trend.color,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.4,
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: trend.color.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(ForgeRadius.sm),
+                ),
+                child: Icon(trend.icon, size: 20, color: trend.color),
+              ),
+
+              const SizedBox(width: ForgeSpacing.md),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      exercise.exerciseName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    Text(
+                      details.join(' \u2022 '),
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: ForgeColors.textSecondary),
+                    ),
+                  ],
                 ),
               ),
 
-              if (exercise.volumeChangePercent != null) ...[
-                const SizedBox(height: 4),
+              const SizedBox(width: ForgeSpacing.sm),
 
-                Text(
-                  '${_signedPercent(exercise.volumeChangePercent!)} vol',
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: ForgeColors.textMuted),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    trend.label,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: trend.color,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+
+                  if (exercise.volumeChangePercent != null) ...[
+                    const SizedBox(height: 4),
+
+                    Text(
+                      '${_signedPercent(exercise.volumeChangePercent!)} vol',
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: ForgeColors.textMuted),
+                    ),
+                  ],
+                ],
+              ),
+
+              if (onTap != null) ...[
+                const SizedBox(width: 6),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: ForgeColors.textMuted,
                 ),
               ],
             ],
           ),
-        ],
+        ),
       ),
     );
   }

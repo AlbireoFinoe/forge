@@ -28,6 +28,50 @@ class ProgressRepository {
     }
   }
 
+  Future<ExerciseProgressData> getExerciseProgress(String exerciseCode) async {
+    try {
+      final code = Uri.encodeComponent(exerciseCode);
+
+      final response = await _apiClient.dio.get<dynamic>(
+        '/progress/exercises/$code',
+      );
+
+      return ExerciseProgressData.fromJson(_asJsonObject(response.data));
+    } on DioException catch (error) {
+      throw _toProgressException(error);
+    }
+  }
+
+  Future<List<ExerciseHistoryItemData>> getExerciseHistory(
+    String exerciseCode, {
+    int limit = 20,
+  }) async {
+    try {
+      final code = Uri.encodeComponent(exerciseCode);
+
+      final response = await _apiClient.dio.get<dynamic>(
+        '/progress/exercises/'
+        '$code/history',
+        queryParameters: {'limit': limit},
+      );
+
+      final value = response.data;
+
+      if (value is! List) {
+        throw const ProgressException(
+          'Unexpected response from '
+          'FORGE server.',
+        );
+      }
+
+      return value
+          .map((item) => ExerciseHistoryItemData.fromJson(_asJsonObject(item)))
+          .toList(growable: false);
+    } on DioException catch (error) {
+      throw _toProgressException(error);
+    }
+  }
+
   Map<String, dynamic> _asJsonObject(dynamic value) {
     if (value is Map<String, dynamic>) {
       return value;
