@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/forge_theme.dart';
 import '../data/exercise_summary_data.dart';
 import 'exercise_detail_provider.dart';
+import 'exercise_detail_sheet.dart';
 import 'muscle_visual_assets.dart';
 
 const _muscleCategories = <_MuscleCategory>[
@@ -264,7 +265,19 @@ class _MuscleExerciseListScreenState
                           return const SizedBox(height: ForgeSpacing.md);
                         },
                         itemBuilder: (context, index) {
-                          return _ExerciseCard(exercise: filtered[index]);
+                          final exercise = filtered[index];
+
+                          return _ExerciseCard(
+                            exercise: exercise,
+                            onTap: () {
+                              showExerciseDetailSheet(
+                                context,
+                                exerciseId: exercise.id,
+                                exerciseName: exercise.name,
+                                showSecondaryMuscles: false,
+                              );
+                            },
+                          );
                         },
                       ),
               ),
@@ -376,66 +389,91 @@ class _MuscleCard extends StatelessWidget {
 }
 
 class _ExerciseCard extends StatelessWidget {
-  const _ExerciseCard({required this.exercise});
+  const _ExerciseCard({required this.exercise, required this.onTap});
 
   final ExerciseSummaryData exercise;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(ForgeSpacing.lg),
-      decoration: BoxDecoration(
-        color: ForgeColors.surfaceRaised,
+    final reps = exercise.minReps == exercise.maxReps
+        ? '${exercise.minReps}'
+        : '${exercise.minReps}'
+              '\u2013'
+              '${exercise.maxReps}';
+
+    return Material(
+      color: ForgeColors.surfaceRaised,
+      borderRadius: BorderRadius.circular(ForgeRadius.lg),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(ForgeRadius.lg),
-        border: Border.all(color: ForgeColors.outline),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: ForgeColors.surfaceSoft,
-              borderRadius: BorderRadius.circular(ForgeRadius.md),
-            ),
-            child: const Icon(
-              Icons.fitness_center_rounded,
-              size: 21,
-              color: ForgeColors.textSecondary,
-            ),
+        child: Container(
+          padding: const EdgeInsets.all(ForgeSpacing.lg),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(ForgeRadius.lg),
+            border: Border.all(color: ForgeColors.outline),
           ),
-          const SizedBox(width: ForgeSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  exercise.name,
-                  style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: ForgeColors.surfaceSoft,
+                  borderRadius: BorderRadius.circular(ForgeRadius.md),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  '${_titleCase(exercise.difficulty)}'
-                  ' ? '
-                  '${exercise.isCompound ? 'Compound' : 'Isolation'}',
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: ForgeColors.textSecondary),
+                child: const Icon(
+                  Icons.fitness_center_rounded,
+                  size: 21,
+                  color: ForgeColors.textSecondary,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '${exercise.minReps}'
-                  '?'
-                  '${exercise.maxReps} reps'
-                  ' ? '
-                  '${exercise.restSeconds}s rest',
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(color: ForgeColors.textMuted),
+              ),
+
+              const SizedBox(width: ForgeSpacing.md),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      exercise.name,
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+
+                    const SizedBox(height: 5),
+
+                    Text(
+                      '${_titleCase(exercise.difficulty)}'
+                      ' \u2022 '
+                      '${exercise.isCompound ? 'Compound' : 'Isolation'}',
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: ForgeColors.textSecondary),
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    Text(
+                      '$reps reps'
+                      ' \u2022 '
+                      '${exercise.restSeconds}s rest',
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: ForgeColors.textMuted),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+
+              const SizedBox(width: ForgeSpacing.sm),
+
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: ForgeColors.textMuted,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

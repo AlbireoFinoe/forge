@@ -10,10 +10,11 @@ Future<void> showExerciseDetailSheet(
   BuildContext context, {
   required String exerciseId,
   required String exerciseName,
-  required int sets,
-  required int minReps,
-  required int maxReps,
-  required int restSeconds,
+  int? sets,
+  int? minReps,
+  int? maxReps,
+  int? restSeconds,
+  bool showSecondaryMuscles = true,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -35,6 +36,7 @@ Future<void> showExerciseDetailSheet(
           minReps: minReps,
           maxReps: maxReps,
           restSeconds: restSeconds,
+          showSecondaryMuscles: showSecondaryMuscles,
         ),
       );
     },
@@ -45,20 +47,23 @@ class ExerciseDetailSheet extends ConsumerWidget {
   const ExerciseDetailSheet({
     required this.exerciseId,
     required this.exerciseName,
-    required this.sets,
-    required this.minReps,
-    required this.maxReps,
-    required this.restSeconds,
+    this.sets,
+    this.minReps,
+    this.maxReps,
+    this.restSeconds,
+    this.showSecondaryMuscles = true,
     super.key,
   });
 
   final String exerciseId;
   final String exerciseName;
 
-  final int sets;
-  final int minReps;
-  final int maxReps;
-  final int restSeconds;
+  final int? sets;
+  final int? minReps;
+  final int? maxReps;
+  final int? restSeconds;
+
+  final bool showSecondaryMuscles;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -142,6 +147,7 @@ class ExerciseDetailSheet extends ConsumerWidget {
                 minReps: minReps,
                 maxReps: maxReps,
                 restSeconds: restSeconds,
+                showSecondaryMuscles: showSecondaryMuscles,
               );
             },
           ),
@@ -226,18 +232,35 @@ class _ExerciseDetailContent extends StatelessWidget {
     required this.minReps,
     required this.maxReps,
     required this.restSeconds,
+    required this.showSecondaryMuscles,
   });
 
   final ExerciseDetailData detail;
 
-  final int sets;
-  final int minReps;
-  final int maxReps;
-  final int restSeconds;
+  final int? sets;
+  final int? minReps;
+  final int? maxReps;
+  final int? restSeconds;
+
+  final bool showSecondaryMuscles;
 
   @override
   Widget build(BuildContext context) {
-    final reps = minReps == maxReps ? '$minReps' : '$minReps\u2013$maxReps';
+    final effectiveMinReps = minReps ?? detail.minReps;
+
+    final effectiveMaxReps = maxReps ?? detail.maxReps;
+
+    final effectiveRestSeconds = restSeconds ?? detail.restSeconds;
+
+    final reps = effectiveMinReps == effectiveMaxReps
+        ? '$effectiveMinReps'
+        : '$effectiveMinReps'
+              '\u2013'
+              '$effectiveMaxReps';
+
+    final prescribedSets = sets;
+
+    final hasPrescription = prescribedSets != null;
 
     final secondary = [...detail.secondaryMuscles]
       ..sort(
@@ -269,7 +292,9 @@ class _ExerciseDetailContent extends StatelessWidget {
 
           const SizedBox(height: ForgeSpacing.xxl),
 
-          const _SectionTitle(title: 'TARGET MUSCLES'),
+          _SectionTitle(
+            title: showSecondaryMuscles ? 'TARGET MUSCLES' : 'TARGET MUSCLE',
+          ),
 
           const SizedBox(height: ForgeSpacing.md),
 
@@ -280,7 +305,7 @@ class _ExerciseDetailContent extends StatelessWidget {
             primary: true,
           ),
 
-          if (secondary.isNotEmpty) ...[
+          if (showSecondaryMuscles && secondary.isNotEmpty) ...[
             const SizedBox(height: ForgeSpacing.xl),
 
             Text(
@@ -321,7 +346,9 @@ class _ExerciseDetailContent extends StatelessWidget {
 
           const SizedBox(height: ForgeSpacing.xxl),
 
-          const _SectionTitle(title: 'PRESCRIPTION'),
+          _SectionTitle(
+            title: hasPrescription ? 'PRESCRIPTION' : 'DEFAULT GUIDANCE',
+          ),
 
           const SizedBox(height: ForgeSpacing.md),
 
@@ -332,21 +359,39 @@ class _ExerciseDetailContent extends StatelessWidget {
               borderRadius: BorderRadius.circular(ForgeRadius.lg),
               border: Border.all(color: ForgeColors.outline),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _Metric(value: '$sets', label: 'SETS'),
-                ),
-                const _MetricDivider(),
-                Expanded(
-                  child: _Metric(value: reps, label: 'REPS'),
-                ),
-                const _MetricDivider(),
-                Expanded(
-                  child: _Metric(value: '${restSeconds}s', label: 'REST'),
-                ),
-              ],
-            ),
+            child: hasPrescription
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: _Metric(value: '$prescribedSets', label: 'SETS'),
+                      ),
+                      const _MetricDivider(),
+                      Expanded(
+                        child: _Metric(value: reps, label: 'REPS'),
+                      ),
+                      const _MetricDivider(),
+                      Expanded(
+                        child: _Metric(
+                          value: '${effectiveRestSeconds}s',
+                          label: 'REST',
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        child: _Metric(value: reps, label: 'REPS'),
+                      ),
+                      const _MetricDivider(),
+                      Expanded(
+                        child: _Metric(
+                          value: '${effectiveRestSeconds}s',
+                          label: 'REST',
+                        ),
+                      ),
+                    ],
+                  ),
           ),
 
           if (detail.equipment.isNotEmpty) ...[
@@ -371,6 +416,14 @@ class _ExerciseDetailContent extends StatelessWidget {
           Text(
             'Muscle visualization represents '
             'FORGE muscle groups.',
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: ForgeColors.textMuted),
+          ),
+
+          const SizedBox(height: ForgeSpacing.sm),
+
+          Text(
+            'Exercise data by RepDB (repdb.co)',
             style: Theme.of(context).textTheme.bodySmall
                 ?.copyWith(color: ForgeColors.textMuted),
           ),
