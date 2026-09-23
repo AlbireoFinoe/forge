@@ -133,3 +133,57 @@ def test_progress_overview_keeps_partial_logged_exercise(
     assert item.completed_sessions == 0
     assert item.best_weight_kg == Decimal("16")
     assert item.trend == "insufficient_data"
+
+
+def test_average_completed_set_rpe_requires_full_coverage():
+    completed_sets = [
+        SimpleNamespace(
+            rpe=Decimal("7.0"),
+        ),
+        SimpleNamespace(
+            rpe=None,
+        ),
+        SimpleNamespace(
+            rpe=Decimal("8.0"),
+        ),
+    ]
+
+    result = (
+        progress_service._average_completed_set_rpe(
+            completed_sets
+        )
+    )
+
+    assert result is None
+
+
+def test_average_completed_set_rpe_uses_all_completed_sets():
+    completed_sets = [
+        SimpleNamespace(
+            rpe=Decimal("7.0"),
+        ),
+        SimpleNamespace(
+            rpe=Decimal("8.0"),
+        ),
+        SimpleNamespace(
+            rpe=Decimal("9.0"),
+        ),
+    ]
+
+    result = (
+        progress_service._average_completed_set_rpe(
+            completed_sets
+        )
+    )
+
+    assert result == Decimal("8.0")
+
+
+def test_average_completed_set_rpe_without_sets_is_none():
+    result = (
+        progress_service._average_completed_set_rpe(
+            []
+        )
+    )
+
+    assert result is None

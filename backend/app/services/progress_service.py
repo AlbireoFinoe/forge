@@ -303,6 +303,35 @@ def get_workout_progress_summary(
     )
 
 
+def _average_completed_set_rpe(
+    completed_sets: list[WorkoutSet],
+) -> Decimal | None:
+    if not completed_sets:
+        return None
+
+    if any(
+        workout_set.rpe is None
+        for workout_set in completed_sets
+    ):
+        return None
+
+    rpe_values = [
+        workout_set.rpe
+        for workout_set in completed_sets
+        if workout_set.rpe is not None
+    ]
+
+    return (
+        sum(
+            rpe_values,
+            Decimal("0"),
+        )
+        / Decimal(len(rpe_values))
+    ).quantize(
+        Decimal("0.1")
+    )
+
+
 def get_exercise_history(
     db: Session,
     user: User,
@@ -418,24 +447,11 @@ def get_exercise_history(
                 Decimal("0")
             )
 
-        rpe_values = [
-            workout_set.rpe
-            for workout_set in completed_sets
-            if workout_set.rpe is not None
-        ]
-
-        if rpe_values:
-            average_rpe = (
-                sum(
-                    rpe_values,
-                    Decimal("0"),
-                )
-                / Decimal(len(rpe_values))
-            ).quantize(
-                Decimal("0.1")
+        average_rpe = (
+            _average_completed_set_rpe(
+                completed_sets
             )
-        else:
-            average_rpe = None
+        )
 
         if workout.completed_at is None:
             continue
