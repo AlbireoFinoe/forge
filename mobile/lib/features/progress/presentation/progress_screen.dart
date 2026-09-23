@@ -5,6 +5,8 @@ import '../../../core/constants/weekdays.dart';
 import '../../../core/theme/forge_theme.dart';
 import '../../program/presentation/program_controller.dart';
 import '../../workout/data/workout_models.dart';
+import '../data/progress_models.dart';
+import 'progress_provider.dart';
 import '../../workout/presentation/workout_controller.dart';
 import '../../workout/presentation/workout_history_screen.dart';
 
@@ -16,6 +18,8 @@ class ProgressScreen extends ConsumerWidget {
     final programAsync = ref.watch(programControllerProvider);
 
     final workoutAsync = ref.watch(workoutControllerProvider);
+
+    final progressOverviewAsync = ref.watch(progressOverviewProvider);
 
     if (programAsync.isLoading || workoutAsync.isLoading) {
       return const Scaffold(
@@ -96,9 +100,12 @@ class ProgressScreen extends ConsumerWidget {
       appBar: const _ProgressAppBar(),
       body: RefreshIndicator(
         onRefresh: () async {
+          ref.invalidate(progressOverviewProvider);
+
           await Future.wait([
             ref.read(programControllerProvider.notifier).refresh(),
             ref.read(workoutControllerProvider.notifier).refresh(),
+            ref.read(progressOverviewProvider.future),
           ]);
         },
         child: ListView(
@@ -143,6 +150,29 @@ class ProgressScreen extends ConsumerWidget {
             const SizedBox(height: ForgeSpacing.md),
 
             _RecentActivity(workouts: completedThisWeek),
+
+            const SizedBox(height: ForgeSpacing.xxl),
+
+            _SectionHeader(
+              title: 'EXERCISE PROGRESS',
+              trailing: progressOverviewAsync.maybeWhen(
+                data: (overview) {
+                  return '${overview.totalExercises} TRACKED';
+                },
+                orElse: () {
+                  return 'ANALYTICS';
+                },
+              ),
+            ),
+
+            const SizedBox(height: ForgeSpacing.md),
+
+            _ExerciseProgressSection(
+              state: progressOverviewAsync,
+              onRetry: () {
+                ref.invalidate(progressOverviewProvider);
+              },
+            ),
 
             const SizedBox(height: ForgeSpacing.xxl),
 
@@ -455,6 +485,405 @@ class _RecentWorkoutRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ExerciseProgressSection extends StatelessWidget {
+  const _ExerciseProgressSection({required this.state, required this.onRetry});
+
+  final AsyncValue<ProgressOverviewData> state;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return state.when(
+      loading: () {
+        return const _ExerciseProgressLoading();
+      },
+      error: (error, stackTrace) {
+        return _ExerciseProgressError(onRetry: onRetry);
+      },
+      data: (overview) {
+        if (overview.exercises.isEmpty) {
+          return const _ExerciseProgressEmpty();
+        }
+
+        final visible = overview.exercises.take(6).toList(growable: false);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _TrendOverviewCard(overview: overview),
+
+            const SizedBox(height: ForgeSpacing.md),
+
+            for (var index = 0; index < visible.length; index++) ...[
+              _ExerciseProgressRow(exercise: visible[index]),
+
+              if (index < visible.length - 1)
+                const SizedBox(height: ForgeSpacing.sm),
+            ],
+
+            if (overview.exercises.length > visible.length) ...[
+              const SizedBox(height: ForgeSpacing.md),
+
+              Text(
+                '${overview.exercises.length - visible.length} '
+                'more tracked exercises',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: ForgeColors.textMuted),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _TrendOverviewCard extends StatelessWidget {
+  const _TrendOverviewCard({required this.overview});
+
+  final ProgressOverviewData overview;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.lg),
+      decoration: BoxDecoration(
+        color: ForgeColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      child: Wrap(
+        spacing: ForgeSpacing.sm,
+        runSpacing: ForgeSpacing.sm,
+        children: [
+          _TrendCountChip(
+            value: overview.improving,
+            label: 'IMPROVING',
+            color: ForgeColors.success,
+          ),
+          _TrendCountChip(
+            value: overview.stable,
+            label: 'STABLE',
+            color: ForgeColors.textSecondary,
+          ),
+          _TrendCountChip(
+            value: overview.declining,
+            label: 'DECLINING',
+            color: ForgeColors.error,
+          ),
+          if (overview.insufficientData > 0)
+            _TrendCountChip(
+              value: overview.insufficientData,
+              label: 'MORE DATA',
+              color: ForgeColors.textMuted,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrendCountChip extends StatelessWidget {
+  const _TrendCountChip({
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  final int value;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: ForgeSpacing.md,
+        vertical: ForgeSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$value',
+            style: Theme.of(context).textTheme.labelMedium
+                ?.copyWith(color: color, fontWeight: FontWeight.w900),
+          ),
+
+          const SizedBox(width: 5),
+
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExerciseProgressRow extends StatelessWidget {
+  const _ExerciseProgressRow({required this.exercise});
+
+  final ProgressOverviewItemData exercise;
+
+  @override
+  Widget build(BuildContext context) {
+    final trend = _trendPresentation(exercise.trend);
+
+    final details = <String>[
+      '${exercise.completedSessions} '
+          '${exercise.completedSessions == 1 ? 'session' : 'sessions'}',
+    ];
+
+    if (exercise.bestWeightKg != null) {
+      details.add(
+        'Best '
+        '${_formatProgressNumber(exercise.bestWeightKg!)} kg',
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.lg),
+      decoration: BoxDecoration(
+        color: ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.md),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: trend.color.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(ForgeRadius.sm),
+            ),
+            child: Icon(trend.icon, size: 20, color: trend.color),
+          ),
+
+          const SizedBox(width: ForgeSpacing.md),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  exercise.exerciseName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+
+                const SizedBox(height: 4),
+
+                Text(
+                  details.join(' \u2022 '),
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: ForgeColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(width: ForgeSpacing.sm),
+
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                trend.label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: trend.color,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.4,
+                ),
+              ),
+
+              if (exercise.volumeChangePercent != null) ...[
+                const SizedBox(height: 4),
+
+                Text(
+                  '${_signedPercent(exercise.volumeChangePercent!)} vol',
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: ForgeColors.textMuted),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExerciseProgressLoading extends StatelessWidget {
+  const _ExerciseProgressLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 112,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      child: const CircularProgressIndicator(),
+    );
+  }
+}
+
+class _ExerciseProgressError extends StatelessWidget {
+  const _ExerciseProgressError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.lg),
+      decoration: BoxDecoration(
+        color: ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off_outlined, color: ForgeColors.textMuted),
+
+          const SizedBox(width: ForgeSpacing.md),
+
+          Expanded(
+            child: Text(
+              'Could not load exercise '
+              'progress.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+
+          TextButton(onPressed: onRetry, child: const Text('RETRY')),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExerciseProgressEmpty extends StatelessWidget {
+  const _ExerciseProgressEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.xl),
+      decoration: BoxDecoration(
+        color: ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.trending_up_rounded,
+            size: 30,
+            color: ForgeColors.textMuted,
+          ),
+
+          const SizedBox(height: ForgeSpacing.md),
+
+          Text(
+            'No exercise trends yet',
+            style: Theme.of(context).textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+
+          const SizedBox(height: 4),
+
+          Text(
+            'Complete workouts to build '
+            'exercise-level progress data.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: ForgeColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrendPresentation {
+  const _TrendPresentation({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+}
+
+_TrendPresentation _trendPresentation(String trend) {
+  switch (trend) {
+    case 'improving':
+      return const _TrendPresentation(
+        label: 'IMPROVING',
+        icon: Icons.trending_up_rounded,
+        color: ForgeColors.success,
+      );
+
+    case 'declining':
+      return const _TrendPresentation(
+        label: 'DECLINING',
+        icon: Icons.trending_down_rounded,
+        color: ForgeColors.error,
+      );
+
+    case 'stable':
+      return const _TrendPresentation(
+        label: 'STABLE',
+        icon: Icons.trending_flat_rounded,
+        color: ForgeColors.textSecondary,
+      );
+
+    default:
+      return const _TrendPresentation(
+        label: 'MORE DATA',
+        icon: Icons.more_horiz_rounded,
+        color: ForgeColors.textMuted,
+      );
+  }
+}
+
+String _signedPercent(double value) {
+  final sign = value > 0 ? '+' : '';
+
+  return '$sign'
+      '${_formatProgressNumber(value)}%';
+}
+
+String _formatProgressNumber(double value) {
+  if (value == value.roundToDouble()) {
+    return value.toInt().toString();
+  }
+
+  return value.toStringAsFixed(1);
 }
 
 class _HistoryCard extends StatelessWidget {
