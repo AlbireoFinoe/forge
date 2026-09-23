@@ -705,8 +705,8 @@ class _ExerciseProgressRow extends StatelessWidget {
     final trend = _trendPresentation(exercise.trend);
 
     final details = <String>[
-      '${exercise.completedSessions} '
-          '${exercise.completedSessions == 1 ? 'session' : 'sessions'}',
+      '${exercise.historyEntries} logged '
+          '${exercise.historyEntries == 1 ? 'session' : 'sessions'}',
     ];
 
     if (exercise.bestWeightKg != null) {

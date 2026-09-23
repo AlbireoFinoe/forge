@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../data/workout_models.dart';
+import '../../adaptation/presentation/adaptation_provider.dart';
+import '../../progress/presentation/progress_provider.dart';
 import '../data/workout_repository.dart';
 
 final workoutRepositoryProvider = Provider<WorkoutRepository>((ref) {
@@ -90,6 +92,9 @@ class WorkoutController extends AsyncNotifier<WorkoutState> {
     final history = await _repository.getHistory();
 
     state = AsyncData(WorkoutState(currentWorkout: null, history: history));
+
+    ref.invalidate(progressOverviewProvider);
+    ref.invalidate(adaptationOverviewProvider);
 
     return completed;
   }

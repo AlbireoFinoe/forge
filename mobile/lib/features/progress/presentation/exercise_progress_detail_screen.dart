@@ -83,8 +83,7 @@ class _DetailContent extends StatelessWidget {
         const SizedBox(height: 6),
 
         Text(
-          '${progress.completedSessions} '
-          '${progress.completedSessions == 1 ? 'completed session' : 'completed sessions'}',
+          _progressSessionSummary(progress),
           style: Theme.of(context).textTheme.bodyMedium
               ?.copyWith(color: ForgeColors.textSecondary),
         ),
@@ -689,4 +688,21 @@ String _monthLabel(int month) {
   ];
 
   return months[month - 1];
+}
+
+String _progressSessionSummary(ExerciseProgressData progress) {
+  final logged = progress.historyEntries;
+
+  final loggedLabel =
+      '$logged logged '
+      '${logged == 1 ? 'session' : 'sessions'}';
+
+  if (progress.completedSessions == progress.historyEntries) {
+    return loggedLabel;
+  }
+
+  final completed = progress.completedSessions;
+
+  return '$loggedLabel ? '
+      '$completed fully completed';
 }

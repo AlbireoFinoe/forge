@@ -753,21 +753,7 @@ def get_progress_overview(
             )
 
         except ExerciseHistoryNotFoundError:
-            item = ProgressOverviewItem(
-                exercise_code=(
-                    exercise_code
-                ),
-                exercise_name=(
-                    exercise_name
-                ),
-                history_entries=0,
-                completed_sessions=0,
-                best_weight_kg=None,
-                latest_top_weight_kg=None,
-                latest_volume_kg=None,
-                volume_change_percent=None,
-                trend="insufficient_data",
-            )
+            continue
 
         overview_items.append(
             item
