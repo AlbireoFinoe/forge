@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/forge_theme.dart';
+import '../../progress/presentation/exercise_progress_detail_screen.dart';
 import '../data/adaptation_models.dart';
 
 class AdaptationSection extends StatelessWidget {
@@ -125,18 +126,10 @@ class _AdaptationSummary extends StatelessWidget {
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(ForgeSpacing.lg),
-      decoration: BoxDecoration(
-        color: ForgeColors.surfaceRaised,
-        borderRadius: BorderRadius.circular(ForgeRadius.lg),
-        border: Border.all(color: ForgeColors.outline),
-      ),
-      child: Wrap(
-        spacing: ForgeSpacing.sm,
-        runSpacing: ForgeSpacing.sm,
-        children: chips,
-      ),
+    return Wrap(
+      spacing: ForgeSpacing.sm,
+      runSpacing: ForgeSpacing.sm,
+      children: chips,
     );
   }
 }
@@ -205,86 +198,121 @@ class _AdaptationRow extends StatelessWidget {
         .map(_reasonLabel)
         .join(' \u2022 ');
 
-    return Container(
-      padding: const EdgeInsets.all(ForgeSpacing.lg),
-      decoration: BoxDecoration(
-        color: ForgeColors.surface,
+    return Material(
+      color: ForgeColors.surface,
+      borderRadius: BorderRadius.circular(ForgeRadius.md),
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) {
+                return ExerciseProgressDetailScreen(
+                  exerciseCode: recommendation.exerciseCode,
+                );
+              },
+            ),
+          );
+        },
         borderRadius: BorderRadius.circular(ForgeRadius.md),
-        border: Border.all(color: ForgeColors.outline),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: presentation.color.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(ForgeRadius.sm),
-            ),
-            child: Icon(presentation.icon, size: 20, color: presentation.color),
+        child: Container(
+          padding: const EdgeInsets.all(ForgeSpacing.lg),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(ForgeRadius.md),
+            border: Border.all(color: ForgeColors.outline),
           ),
-
-          const SizedBox(width: ForgeSpacing.md),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  recommendation.exerciseName ?? recommendation.exerciseCode,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w800),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: presentation.color.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(ForgeRadius.sm),
                 ),
-
-                const SizedBox(height: 4),
-
-                Text(
-                  presentation.label,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: presentation.color,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.5,
-                  ),
+                child: Icon(
+                  presentation.icon,
+                  size: 20,
+                  color: presentation.color,
                 ),
+              ),
 
-                if (suggestion != null) ...[
-                  const SizedBox(height: 5),
+              const SizedBox(width: ForgeSpacing.md),
 
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      recommendation.exerciseName ??
+                          recommendation.exerciseCode,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    Text(
+                      presentation.label,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: presentation.color,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+
+                    if (suggestion != null) ...[
+                      const SizedBox(height: 5),
+
+                      Text(
+                        suggestion,
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+
+                    if (reasons.isNotEmpty) ...[
+                      const SizedBox(height: 5),
+
+                      Text(
+                        reasons,
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: ForgeColors.textSecondary),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: ForgeSpacing.sm),
+
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Text(
-                    suggestion,
-                    style: Theme.of(context).textTheme.bodyMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    recommendation.confidence.toUpperCase(),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: ForgeColors.textMuted,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+
+                  const SizedBox(width: 4),
+
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: ForgeColors.textMuted,
                   ),
                 ],
-
-                if (reasons.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-
-                  Text(
-                    reasons,
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: ForgeColors.textSecondary),
-                  ),
-                ],
-              ],
-            ),
+              ),
+            ],
           ),
-
-          const SizedBox(width: ForgeSpacing.sm),
-
-          Text(
-            recommendation.confidence.toUpperCase(),
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: ForgeColors.textMuted,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.4,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
