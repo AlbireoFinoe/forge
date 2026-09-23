@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/weekdays.dart';
 import '../../../core/theme/forge_theme.dart';
+import '../../adaptation/presentation/adaptation_provider.dart';
+import '../../adaptation/presentation/adaptation_section.dart';
 import '../../program/presentation/program_controller.dart';
 import '../../workout/data/workout_models.dart';
 import '../data/progress_models.dart';
@@ -21,6 +23,8 @@ class ProgressScreen extends ConsumerWidget {
     final workoutAsync = ref.watch(workoutControllerProvider);
 
     final progressOverviewAsync = ref.watch(progressOverviewProvider);
+
+    final adaptationOverviewAsync = ref.watch(adaptationOverviewProvider);
 
     if (programAsync.isLoading || workoutAsync.isLoading) {
       return const Scaffold(
@@ -102,6 +106,7 @@ class ProgressScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(progressOverviewProvider);
+          ref.invalidate(adaptationOverviewProvider);
 
           await Future.wait([
             ref.read(programControllerProvider.notifier).refresh(),
@@ -172,6 +177,33 @@ class ProgressScreen extends ConsumerWidget {
               state: progressOverviewAsync,
               onRetry: () {
                 ref.invalidate(progressOverviewProvider);
+              },
+            ),
+
+            const SizedBox(height: ForgeSpacing.xxl),
+
+            _SectionHeader(
+              title: 'ADAPTATION',
+              trailing: adaptationOverviewAsync.maybeWhen(
+                data: (overview) {
+                  final signals =
+                      overview.progressLoad +
+                      overview.progressReps +
+                      overview.holdLoad +
+                      overview.reduceStress;
+
+                  return '$signals SIGNALS';
+                },
+                orElse: () => 'GUIDANCE',
+              ),
+            ),
+
+            const SizedBox(height: ForgeSpacing.md),
+
+            AdaptationSection(
+              state: adaptationOverviewAsync,
+              onRetry: () {
+                ref.invalidate(adaptationOverviewProvider);
               },
             ),
 
@@ -508,7 +540,9 @@ class _ExerciseProgressSection extends StatelessWidget {
           return const _ExerciseProgressEmpty();
         }
 
-        final visible = overview.exercises.take(6).toList(growable: false);
+        final visible = overview.exercises.take(4).toList(growable: false);
+
+        final remaining = overview.exercises.length - visible.length;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -517,34 +551,51 @@ class _ExerciseProgressSection extends StatelessWidget {
 
             const SizedBox(height: ForgeSpacing.md),
 
-            for (var index = 0; index < visible.length; index++) ...[
-              _ExerciseProgressRow(
-                exercise: visible[index],
-                onTap: visible[index].historyEntries > 0
-                    ? () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) {
-                              return ExerciseProgressDetailScreen(
-                                exerciseCode: visible[index].exerciseCode,
-                              );
-                            },
-                          ),
-                        );
-                      }
-                    : null,
+            Material(
+              color: ForgeColors.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(ForgeRadius.lg),
+                side: const BorderSide(color: ForgeColors.outline),
               ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  for (var index = 0; index < visible.length; index++) ...[
+                    _ExerciseProgressRow(
+                      exercise: visible[index],
+                      onTap: visible[index].historyEntries > 0
+                          ? () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) {
+                                    return ExerciseProgressDetailScreen(
+                                      exerciseCode: visible[index].exerciseCode,
+                                    );
+                                  },
+                                ),
+                              );
+                            }
+                          : null,
+                    ),
 
-              if (index < visible.length - 1)
-                const SizedBox(height: ForgeSpacing.sm),
-            ],
+                    if (index < visible.length - 1)
+                      const Divider(
+                        height: 1,
+                        indent: ForgeSpacing.lg,
+                        endIndent: ForgeSpacing.lg,
+                        color: ForgeColors.outline,
+                      ),
+                  ],
+                ],
+              ),
+            ),
 
-            if (overview.exercises.length > visible.length) ...[
-              const SizedBox(height: ForgeSpacing.md),
+            if (remaining > 0) ...[
+              const SizedBox(height: ForgeSpacing.sm),
 
               Text(
-                '${overview.exercises.length - visible.length} '
-                'more tracked exercises',
+                '$remaining more tracked '
+                '${remaining == 1 ? 'exercise' : 'exercises'}',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall
                     ?.copyWith(color: ForgeColors.textMuted),
@@ -564,40 +615,32 @@ class _TrendOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(ForgeSpacing.lg),
-      decoration: BoxDecoration(
-        color: ForgeColors.surfaceRaised,
-        borderRadius: BorderRadius.circular(ForgeRadius.lg),
-        border: Border.all(color: ForgeColors.outline),
-      ),
-      child: Wrap(
-        spacing: ForgeSpacing.sm,
-        runSpacing: ForgeSpacing.sm,
-        children: [
+    return Wrap(
+      spacing: ForgeSpacing.sm,
+      runSpacing: ForgeSpacing.sm,
+      children: [
+        _TrendCountChip(
+          value: overview.improving,
+          label: 'IMPROVING',
+          color: ForgeColors.success,
+        ),
+        _TrendCountChip(
+          value: overview.stable,
+          label: 'STABLE',
+          color: ForgeColors.textSecondary,
+        ),
+        _TrendCountChip(
+          value: overview.declining,
+          label: 'DECLINING',
+          color: ForgeColors.error,
+        ),
+        if (overview.insufficientData > 0)
           _TrendCountChip(
-            value: overview.improving,
-            label: 'IMPROVING',
-            color: ForgeColors.success,
+            value: overview.insufficientData,
+            label: 'MORE DATA',
+            color: ForgeColors.textMuted,
           ),
-          _TrendCountChip(
-            value: overview.stable,
-            label: 'STABLE',
-            color: ForgeColors.textSecondary,
-          ),
-          _TrendCountChip(
-            value: overview.declining,
-            label: 'DECLINING',
-            color: ForgeColors.error,
-          ),
-          if (overview.insufficientData > 0)
-            _TrendCountChip(
-              value: overview.insufficientData,
-              label: 'MORE DATA',
-              color: ForgeColors.textMuted,
-            ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -672,92 +715,90 @@ class _ExerciseProgressRow extends StatelessWidget {
       );
     }
 
-    return Material(
-      color: ForgeColors.surface,
-      borderRadius: BorderRadius.circular(ForgeRadius.md),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(ForgeRadius.md),
-        child: Container(
-          padding: const EdgeInsets.all(ForgeSpacing.lg),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(ForgeRadius.md),
-            border: Border.all(color: ForgeColors.outline),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: trend.color.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(ForgeRadius.sm),
-                ),
-                child: Icon(trend.icon, size: 20, color: trend.color),
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: ForgeSpacing.lg,
+          vertical: ForgeSpacing.md,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: trend.color.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(ForgeRadius.sm),
               ),
+              child: Icon(trend.icon, size: 18, color: trend.color),
+            ),
 
-              const SizedBox(width: ForgeSpacing.md),
+            const SizedBox(width: ForgeSpacing.md),
 
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      exercise.exerciseName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-
-                    const SizedBox(height: 4),
-
-                    Text(
-                      details.join(' \u2022 '),
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(color: ForgeColors.textSecondary),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(width: ForgeSpacing.sm),
-
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    trend.label,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: trend.color,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.4,
-                    ),
+                    exercise.exerciseName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w800),
                   ),
 
-                  if (exercise.volumeChangePercent != null) ...[
-                    const SizedBox(height: 4),
+                  const SizedBox(height: 2),
 
-                    Text(
-                      '${_signedPercent(exercise.volumeChangePercent!)} vol',
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(color: ForgeColors.textMuted),
-                    ),
-                  ],
+                  Text(
+                    details.join(' \u2022 '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: ForgeColors.textSecondary),
+                  ),
                 ],
               ),
+            ),
 
-              if (onTap != null) ...[
-                const SizedBox(width: 6),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 20,
-                  color: ForgeColors.textMuted,
+            const SizedBox(width: ForgeSpacing.sm),
+
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  trend.label,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: trend.color,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.3,
+                  ),
                 ),
+
+                if (exercise.volumeChangePercent != null) ...[
+                  const SizedBox(height: 2),
+
+                  Text(
+                    _signedPercent(exercise.volumeChangePercent!),
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: ForgeColors.textMuted),
+                  ),
+                ],
               ],
+            ),
+
+            if (onTap != null) ...[
+              const SizedBox(width: 4),
+
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: ForgeColors.textMuted,
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );
