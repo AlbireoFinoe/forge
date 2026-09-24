@@ -246,6 +246,7 @@ class _AdaptationRow extends StatelessWidget {
               builder: (_) {
                 return ExerciseProgressDetailScreen(
                   exerciseCode: recommendation.exerciseCode,
+                  mode: ExerciseDetailMode.adaptation,
                 );
               },
             ),

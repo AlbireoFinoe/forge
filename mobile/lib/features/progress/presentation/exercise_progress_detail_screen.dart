@@ -8,10 +8,18 @@ import '../../adaptation/presentation/adaptation_provider.dart';
 import '../data/progress_models.dart';
 import 'progress_provider.dart';
 
+enum ExerciseDetailMode { progress, adaptation }
+
 class ExerciseProgressDetailScreen extends ConsumerWidget {
-  const ExerciseProgressDetailScreen({required this.exerciseCode, super.key});
+  const ExerciseProgressDetailScreen({
+    required this.exerciseCode,
+    this.mode = ExerciseDetailMode.progress,
+    super.key,
+  });
 
   final String exerciseCode;
+
+  final ExerciseDetailMode mode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -24,7 +32,13 @@ class ExerciseProgressDetailScreen extends ConsumerWidget {
     final adaptationState = ref.watch(exerciseAdaptationProvider(exerciseCode));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('EXERCISE PROGRESS')),
+      appBar: AppBar(
+        title: Text(
+          mode == ExerciseDetailMode.adaptation
+              ? 'ADAPTATION DETAIL'
+              : 'EXERCISE PROGRESS',
+        ),
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(exerciseProgressProvider(exerciseCode));
@@ -54,6 +68,18 @@ class ExerciseProgressDetailScreen extends ConsumerWidget {
               progress: progress,
               historyState: historyState,
               adaptationState: adaptationState,
+              mode: mode,
+              onViewFullProgress: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) {
+                      return ExerciseProgressDetailScreen(
+                        exerciseCode: exerciseCode,
+                      );
+                    },
+                  ),
+                );
+              },
               onRetryAdaptation: () {
                 ref.invalidate(exerciseAdaptationProvider(exerciseCode));
               },
@@ -70,6 +96,8 @@ class _DetailContent extends StatelessWidget {
     required this.progress,
     required this.historyState,
     required this.adaptationState,
+    required this.mode,
+    required this.onViewFullProgress,
     required this.onRetryAdaptation,
   });
 
@@ -79,11 +107,24 @@ class _DetailContent extends StatelessWidget {
 
   final AsyncValue<AdaptationRecommendationData> adaptationState;
 
+  final ExerciseDetailMode mode;
+
+  final VoidCallback onViewFullProgress;
+
   final VoidCallback onRetryAdaptation;
 
   @override
   Widget build(BuildContext context) {
     final trend = _trendPresentation(progress.trend);
+
+    if (mode == ExerciseDetailMode.adaptation) {
+      return _AdaptationDetailContent(
+        progress: progress,
+        adaptationState: adaptationState,
+        onRetryAdaptation: onRetryAdaptation,
+        onViewFullProgress: onViewFullProgress,
+      );
+    }
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -147,6 +188,266 @@ class _DetailContent extends StatelessWidget {
 
         _HistorySection(state: historyState),
       ],
+    );
+  }
+}
+
+class _AdaptationDetailContent extends StatelessWidget {
+  const _AdaptationDetailContent({
+    required this.progress,
+    required this.adaptationState,
+    required this.onRetryAdaptation,
+    required this.onViewFullProgress,
+  });
+
+  final ExerciseProgressData progress;
+
+  final AsyncValue<AdaptationRecommendationData> adaptationState;
+
+  final VoidCallback onRetryAdaptation;
+  final VoidCallback onViewFullProgress;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(
+        ForgeSpacing.xl,
+        ForgeSpacing.lg,
+        ForgeSpacing.xl,
+        ForgeSpacing.xxl + MediaQuery.paddingOf(context).bottom,
+      ),
+      children: [
+        Text(
+          progress.exerciseName,
+          style: Theme.of(context).textTheme.headlineMedium
+              ?.copyWith(fontWeight: FontWeight.w900),
+        ),
+
+        const SizedBox(height: 6),
+
+        Text(
+          _progressSessionSummary(progress),
+          style: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(color: ForgeColors.textSecondary),
+        ),
+
+        const SizedBox(height: ForgeSpacing.xl),
+
+        const _SectionTitle(title: 'NEXT SESSION'),
+
+        const SizedBox(height: ForgeSpacing.md),
+
+        _NextSessionGuidance(
+          state: adaptationState,
+          onRetry: onRetryAdaptation,
+          showReasons: false,
+        ),
+
+        const SizedBox(height: ForgeSpacing.xxl),
+
+        const _SectionTitle(title: 'WHY THIS?'),
+
+        const SizedBox(height: ForgeSpacing.md),
+
+        _AdaptationReasonCard(state: adaptationState),
+
+        const SizedBox(height: ForgeSpacing.xxl),
+
+        const _SectionTitle(title: 'SUPPORTING DATA'),
+
+        const SizedBox(height: ForgeSpacing.md),
+
+        _AdaptationEvidenceCard(progress: progress),
+
+        const SizedBox(height: ForgeSpacing.xl),
+
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: onViewFullProgress,
+            icon: const Icon(Icons.insights_rounded),
+            label: const Text('VIEW FULL EXERCISE PROGRESS'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AdaptationReasonCard extends StatelessWidget {
+  const _AdaptationReasonCard({required this.state});
+
+  final AsyncValue<AdaptationRecommendationData> state;
+
+  @override
+  Widget build(BuildContext context) {
+    return state.when(
+      loading: () {
+        return const _CompactInfoCard(
+          icon: Icons.tune_rounded,
+          text: 'Evaluating recent training data...',
+        );
+      },
+      error: (error, stackTrace) {
+        return const _CompactInfoCard(
+          icon: Icons.info_outline_rounded,
+          text: 'Recommendation reasoning is unavailable.',
+        );
+      },
+      data: (recommendation) {
+        final reasons = recommendation.reasonCodes
+            .take(3)
+            .toList(growable: false);
+
+        if (reasons.isEmpty) {
+          return const _CompactInfoCard(
+            icon: Icons.info_outline_rounded,
+            text: 'No additional reasoning is available.',
+          );
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(ForgeSpacing.lg),
+          decoration: BoxDecoration(
+            color: ForgeColors.surface,
+            borderRadius: BorderRadius.circular(ForgeRadius.lg),
+            border: Border.all(color: ForgeColors.outline),
+          ),
+          child: Column(
+            children: [
+              for (var index = 0; index < reasons.length; index++) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 18,
+                        color: ForgeColors.primary,
+                      ),
+                    ),
+
+                    const SizedBox(width: ForgeSpacing.sm),
+
+                    Expanded(
+                      child: Text(
+                        adaptationReasonLabel(reasons[index]),
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
+                ),
+
+                if (index < reasons.length - 1)
+                  const SizedBox(height: ForgeSpacing.md),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AdaptationEvidenceCard extends StatelessWidget {
+  const _AdaptationEvidenceCard({required this.progress});
+
+  final ExerciseProgressData progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final trend = _trendPresentation(progress.trend);
+
+    final volumeChange = progress.volumeChangePercent;
+
+    return Container(
+      padding: const EdgeInsets.all(ForgeSpacing.lg),
+      decoration: BoxDecoration(
+        color: ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _Metric(value: trend.label, label: 'TREND'),
+              ),
+
+              const _MetricDivider(),
+
+              Expanded(
+                child: _Metric(
+                  value: volumeChange == null
+                      ? '\u2014'
+                      : _signedPercent(volumeChange),
+                  label: 'VOLUME CHANGE',
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: ForgeSpacing.lg),
+
+          Row(
+            children: [
+              Expanded(
+                child: _Metric(
+                  value: progress.latestAverageRpe == null
+                      ? '\u2014'
+                      : _formatNumber(progress.latestAverageRpe!),
+                  label: 'LATEST RPE',
+                ),
+              ),
+
+              const _MetricDivider(),
+
+              Expanded(
+                child: _Metric(
+                  value: progress.latestTopWeightKg == null
+                      ? '\u2014'
+                      : '${_formatNumber(progress.latestTopWeightKg!)} kg',
+                  label: 'TOP WEIGHT',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactInfoCard extends StatelessWidget {
+  const _CompactInfoCard({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(ForgeSpacing.lg),
+      decoration: BoxDecoration(
+        color: ForgeColors.surface,
+        borderRadius: BorderRadius.circular(ForgeRadius.lg),
+        border: Border.all(color: ForgeColors.outline),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 19, color: ForgeColors.textMuted),
+
+          const SizedBox(width: ForgeSpacing.md),
+
+          Expanded(
+            child: Text(text, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -230,11 +531,17 @@ class _TrendCard extends StatelessWidget {
 }
 
 class _NextSessionGuidance extends StatelessWidget {
-  const _NextSessionGuidance({required this.state, required this.onRetry});
+  const _NextSessionGuidance({
+    required this.state,
+    required this.onRetry,
+    this.showReasons = true,
+  });
 
   final AsyncValue<AdaptationRecommendationData> state;
 
   final VoidCallback onRetry;
+
+  final bool showReasons;
 
   @override
   Widget build(BuildContext context) {
@@ -355,7 +662,7 @@ class _NextSessionGuidance extends StatelessWidget {
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ],
-                    if (reasons.isNotEmpty) ...[
+                    if (showReasons && reasons.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Text(
                         reasons,
