@@ -189,6 +189,22 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
       }
     }
 
+    final adaptation = ref.read(adaptationOverviewProvider);
+
+    final AdaptationRecommendationData? recommendation = adaptation.maybeWhen(
+      data: (overview) {
+        for (final item in overview.recommendations) {
+          if (item.exerciseCode == exercise.exerciseCode &&
+              !adaptationNeedsMoreData(item)) {
+            return item;
+          }
+        }
+
+        return null;
+      },
+      orElse: () => null,
+    );
+
     final result = await showModalBottomSheet<_SetLogResult>(
       context: context,
       isScrollControlled: true,
@@ -198,6 +214,7 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
           exercise: exercise,
           workoutSet: workoutSet,
           previousSet: previousSet,
+          recommendation: recommendation,
         );
       },
     );
@@ -1482,11 +1499,13 @@ class _SetLogSheet extends StatefulWidget {
     required this.exercise,
     required this.workoutSet,
     required this.previousSet,
+    required this.recommendation,
   });
 
   final WorkoutExerciseData exercise;
   final WorkoutSetData workoutSet;
   final WorkoutSetData? previousSet;
+  final AdaptationRecommendationData? recommendation;
 
   @override
   State<_SetLogSheet> createState() => _SetLogSheetState();
@@ -1568,6 +1587,22 @@ class _SetLogSheetState extends State<_SetLogSheet> {
 
     final isEditing = widget.workoutSet.isCompleted;
 
+    final recommendation = widget.recommendation;
+    final latestWeightKg = recommendation?.latestWeightKg;
+    final loadChangePercent = recommendation?.suggestedLoadChangePercent;
+
+    double? rawSuggestedWeight;
+
+    if (!isEditing &&
+        latestWeightKg != null &&
+        latestWeightKg > 0 &&
+        loadChangePercent != null &&
+        loadChangePercent != 0) {
+      final calculated = latestWeightKg * (1 + loadChangePercent / 100);
+
+      rawSuggestedWeight = (calculated * 100).round() / 100;
+    }
+
     return Container(
       decoration: const BoxDecoration(
         color: ForgeColors.surface,
@@ -1606,6 +1641,14 @@ class _SetLogSheetState extends State<_SetLogSheet> {
                 if (!isEditing && widget.previousSet != null) ...[
                   const SizedBox(height: ForgeSpacing.md),
                   _PreviousSetPanel(set: widget.previousSet!),
+                ],
+
+                if (rawSuggestedWeight != null && recommendation != null) ...[
+                  const SizedBox(height: ForgeSpacing.md),
+                  _SetLoadSuggestionPanel(
+                    recommendation: recommendation,
+                    suggestedWeightKg: rawSuggestedWeight,
+                  ),
                 ],
 
                 const SizedBox(height: ForgeSpacing.xl),
@@ -1896,6 +1939,98 @@ class _SetTargetMetric extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _SetLoadSuggestionPanel extends StatelessWidget {
+  const _SetLoadSuggestionPanel({
+    required this.recommendation,
+    required this.suggestedWeightKg,
+  });
+
+  final AdaptationRecommendationData recommendation;
+  final double suggestedWeightKg;
+
+  @override
+  Widget build(BuildContext context) {
+    final presentation = adaptationPresentationFor(recommendation);
+
+    final latestWeightKg = recommendation.latestWeightKg!;
+
+    final changePercent = recommendation.suggestedLoadChangePercent!;
+
+    final percentPrefix = changePercent > 0 ? '+' : '';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(ForgeSpacing.md),
+      decoration: BoxDecoration(
+        color: presentation.color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(ForgeRadius.md),
+        border: Border.all(color: presentation.color.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(presentation.icon, size: 18, color: presentation.color),
+              const SizedBox(width: ForgeSpacing.sm),
+              Expanded(
+                child: Text(
+                  'FORGE LOAD SUGGESTION',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: ForgeColors.textMuted,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: ForgeSpacing.sm),
+
+          Text(
+            presentation.label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: presentation.color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+
+          const SizedBox(height: 4),
+
+          Text(
+            'Based on latest logged load: '
+            '${_formatNumber(latestWeightKg)} kg',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: ForgeColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+
+          const SizedBox(height: ForgeSpacing.sm),
+
+          Text(
+            'Raw suggestion: '
+            '${_formatNumber(suggestedWeightKg)} kg '
+            '($percentPrefix'
+            '${_formatNumber(changePercent)}%)',
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
+
+          const SizedBox(height: 3),
+
+          Text(
+            'Adjust to an available weight.',
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: ForgeColors.textMuted),
+          ),
+        ],
+      ),
     );
   }
 }
