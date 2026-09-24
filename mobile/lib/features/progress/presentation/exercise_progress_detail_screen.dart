@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/forge_theme.dart';
+import '../../adaptation/data/adaptation_models.dart';
+import '../../adaptation/presentation/adaptation_guidance.dart';
+import '../../adaptation/presentation/adaptation_provider.dart';
 import '../data/progress_models.dart';
 import 'progress_provider.dart';
 
@@ -18,6 +21,8 @@ class ExerciseProgressDetailScreen extends ConsumerWidget {
       exerciseProgressHistoryProvider(exerciseCode),
     );
 
+    final adaptationState = ref.watch(exerciseAdaptationProvider(exerciseCode));
+
     return Scaffold(
       appBar: AppBar(title: const Text('EXERCISE PROGRESS')),
       body: RefreshIndicator(
@@ -25,6 +30,8 @@ class ExerciseProgressDetailScreen extends ConsumerWidget {
           ref.invalidate(exerciseProgressProvider(exerciseCode));
 
           ref.invalidate(exerciseProgressHistoryProvider(exerciseCode));
+
+          ref.invalidate(exerciseAdaptationProvider(exerciseCode));
 
           await Future.wait([
             ref.read(exerciseProgressProvider(exerciseCode).future),
@@ -46,6 +53,10 @@ class ExerciseProgressDetailScreen extends ConsumerWidget {
             return _DetailContent(
               progress: progress,
               historyState: historyState,
+              adaptationState: adaptationState,
+              onRetryAdaptation: () {
+                ref.invalidate(exerciseAdaptationProvider(exerciseCode));
+              },
             );
           },
         ),
@@ -55,11 +66,20 @@ class ExerciseProgressDetailScreen extends ConsumerWidget {
 }
 
 class _DetailContent extends StatelessWidget {
-  const _DetailContent({required this.progress, required this.historyState});
+  const _DetailContent({
+    required this.progress,
+    required this.historyState,
+    required this.adaptationState,
+    required this.onRetryAdaptation,
+  });
 
   final ExerciseProgressData progress;
 
   final AsyncValue<List<ExerciseHistoryItemData>> historyState;
+
+  final AsyncValue<AdaptationRecommendationData> adaptationState;
+
+  final VoidCallback onRetryAdaptation;
 
   @override
   Widget build(BuildContext context) {
@@ -91,6 +111,17 @@ class _DetailContent extends StatelessWidget {
         const SizedBox(height: ForgeSpacing.xl),
 
         _TrendCard(progress: progress, presentation: trend),
+
+        const SizedBox(height: ForgeSpacing.xxl),
+
+        const _SectionTitle(title: 'NEXT SESSION'),
+
+        const SizedBox(height: ForgeSpacing.md),
+
+        _NextSessionGuidance(
+          state: adaptationState,
+          onRetry: onRetryAdaptation,
+        ),
 
         const SizedBox(height: ForgeSpacing.xxl),
 
@@ -194,6 +225,153 @@ class _TrendCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _NextSessionGuidance extends StatelessWidget {
+  const _NextSessionGuidance({required this.state, required this.onRetry});
+
+  final AsyncValue<AdaptationRecommendationData> state;
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return state.when(
+      loading: () {
+        return Container(
+          height: 96,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: ForgeColors.surface,
+            borderRadius: BorderRadius.circular(ForgeRadius.lg),
+            border: Border.all(color: ForgeColors.outline),
+          ),
+          child: const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        );
+      },
+      error: (error, stackTrace) {
+        return Container(
+          padding: const EdgeInsets.all(ForgeSpacing.lg),
+          decoration: BoxDecoration(
+            color: ForgeColors.surface,
+            borderRadius: BorderRadius.circular(ForgeRadius.lg),
+            border: Border.all(color: ForgeColors.outline),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.cloud_off_outlined,
+                color: ForgeColors.textMuted,
+              ),
+              const SizedBox(width: ForgeSpacing.md),
+              Expanded(
+                child: Text(
+                  'Next-session guidance '
+                  'is unavailable.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+              TextButton(onPressed: onRetry, child: const Text('RETRY')),
+            ],
+          ),
+        );
+      },
+      data: (recommendation) {
+        final presentation = adaptationPresentationFor(recommendation);
+
+        final suggestion = adaptationSuggestionFor(recommendation);
+
+        final reasons = recommendation.reasonCodes
+            .take(2)
+            .map(adaptationReasonLabel)
+            .join(' \u2022 ');
+
+        return Container(
+          padding: const EdgeInsets.all(ForgeSpacing.lg),
+          decoration: BoxDecoration(
+            color: ForgeColors.surface,
+            borderRadius: BorderRadius.circular(ForgeRadius.lg),
+            border: Border.all(
+              color: presentation.color.withValues(alpha: 0.22),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: presentation.color.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(ForgeRadius.md),
+                ),
+                child: Icon(
+                  presentation.icon,
+                  color: presentation.color,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: ForgeSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            presentation.label,
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(
+                                  color: presentation.color,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.4,
+                                ),
+                          ),
+                        ),
+                        Text(
+                          recommendation.confidence.toUpperCase(),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: ForgeColors.textMuted,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                              ),
+                        ),
+                      ],
+                    ),
+                    if (suggestion != null) ...[
+                      const SizedBox(height: 7),
+                      Text(
+                        suggestion,
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                    if (reasons.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        reasons,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: ForgeColors.textSecondary,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

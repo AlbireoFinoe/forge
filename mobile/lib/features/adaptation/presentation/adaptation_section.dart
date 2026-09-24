@@ -4,16 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/forge_theme.dart';
 import '../../progress/presentation/exercise_progress_detail_screen.dart';
 import '../data/adaptation_models.dart';
-
-const _moreDataReasonCodes = <String>{
-  'INSUFFICIENT_DATA',
-  'INSUFFICIENT_COMPLETED_SESSIONS',
-  'MISSING_RPE_DATA',
-};
+import 'adaptation_guidance.dart';
 
 bool _needsMoreDataRecommendation(AdaptationRecommendationData recommendation) {
-  return recommendation.action == 'KEEP_CURRENT' &&
-      recommendation.reasonCodes.any(_moreDataReasonCodes.contains);
+  return adaptationNeedsMoreData(recommendation);
 }
 
 int _needsMoreDataCount(AdaptationOverviewData overview) {
@@ -233,13 +227,13 @@ class _AdaptationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final presentation = _presentationFor(recommendation.action);
+    final presentation = adaptationPresentationFor(recommendation);
 
-    final suggestion = _suggestionFor(recommendation);
+    final suggestion = adaptationSuggestionFor(recommendation);
 
     final reasons = recommendation.reasonCodes
         .take(2)
-        .map(_reasonLabel)
+        .map(adaptationReasonLabel)
         .join(' \u2022 ');
 
     return Material(
@@ -450,138 +444,4 @@ class _AdaptationMessage extends StatelessWidget {
       ),
     );
   }
-}
-
-class _Presentation {
-  const _Presentation({
-    required this.label,
-    required this.icon,
-    required this.color,
-  });
-
-  final String label;
-  final IconData icon;
-  final Color color;
-}
-
-_Presentation _presentationFor(String action) {
-  switch (action) {
-    case 'PROGRESS_LOAD':
-      return const _Presentation(
-        label: 'INCREASE LOAD',
-        icon: Icons.trending_up_rounded,
-        color: ForgeColors.success,
-      );
-
-    case 'PROGRESS_REPS':
-      return const _Presentation(
-        label: 'ADD REPS',
-        icon: Icons.add_rounded,
-        color: ForgeColors.success,
-      );
-
-    case 'HOLD_LOAD':
-      return const _Presentation(
-        label: 'HOLD LOAD',
-        icon: Icons.pause_rounded,
-        color: ForgeColors.warning,
-      );
-
-    case 'REDUCE_STRESS':
-      return const _Presentation(
-        label: 'REDUCE STRESS',
-        icon: Icons.south_rounded,
-        color: ForgeColors.error,
-      );
-
-    default:
-      return const _Presentation(
-        label: 'KEEP CURRENT',
-        icon: Icons.horizontal_rule_rounded,
-        color: ForgeColors.textSecondary,
-      );
-  }
-}
-
-String? _suggestionFor(AdaptationRecommendationData item) {
-  final parts = <String>[];
-
-  final load = item.suggestedLoadChangePercent;
-
-  if (load != null && load != 0) {
-    parts.add('${_signedDouble(load)}% load');
-  }
-
-  final reps = item.suggestedRepChange;
-
-  if (reps != null && reps != 0) {
-    parts.add(
-      '${_signedInt(reps)} '
-      '${reps.abs() == 1 ? 'rep' : 'reps'}',
-    );
-  }
-
-  final sets = item.suggestedSetChange;
-
-  if (sets != null && sets != 0) {
-    parts.add(
-      '${_signedInt(sets)} '
-      '${sets.abs() == 1 ? 'set' : 'sets'}',
-    );
-  }
-
-  if (parts.isEmpty) {
-    if (item.action == 'HOLD_LOAD') {
-      return 'Keep your current load '
-          'next session';
-    }
-
-    return null;
-  }
-
-  return '${parts.join(' \u2022 ')} '
-      'next session';
-}
-
-String _reasonLabel(String code) {
-  const labels = {
-    'PERFORMANCE_IMPROVING': 'Performance improving',
-    'RPE_MANAGEABLE': 'RPE manageable',
-    'NO_EXTERNAL_LOAD': 'No external load',
-    'RPE_HIGH': 'High RPE',
-    'PERFORMANCE_STABLE': 'Performance stable',
-    'RPE_LOW': 'Low RPE',
-    'RPE_MODERATE_OR_HIGH': 'Moderate or high RPE',
-    'PERFORMANCE_DECLINING': 'Performance declining',
-    'REVIEW_BEFORE_REDUCTION': 'Review before reduction',
-    'INSUFFICIENT_DATA': 'More data needed',
-    'INSUFFICIENT_COMPLETED_SESSIONS': 'More sessions needed',
-    'MISSING_RPE_DATA': 'RPE data needed',
-  };
-
-  return labels[code] ??
-      code
-          .toLowerCase()
-          .split('_')
-          .map((part) {
-            if (part.isEmpty) {
-              return '';
-            }
-
-            return '${part[0].toUpperCase()}'
-                '${part.substring(1)}';
-          })
-          .join(' ');
-}
-
-String _signedInt(int value) {
-  return value > 0 ? '+$value' : '$value';
-}
-
-String _signedDouble(double value) {
-  final formatted = value == value.roundToDouble()
-      ? value.toInt().toString()
-      : value.toStringAsFixed(1);
-
-  return value > 0 ? '+$formatted' : formatted;
 }
