@@ -192,8 +192,16 @@ class ProgressScreen extends ConsumerWidget {
                       overview.holdLoad +
                       overview.reduceStress;
 
-                  return '$signals '
-                      '${signals == 1 ? 'SIGNAL' : 'SIGNALS'}';
+                  if (signals > 0) {
+                    return '$signals '
+                        '${signals == 1 ? 'SIGNAL' : 'SIGNALS'}';
+                  }
+
+                  if (overview.totalExercises > 0) {
+                    return '${overview.totalExercises} TRACKED';
+                  }
+
+                  return 'GUIDANCE';
                 },
                 orElse: () => 'GUIDANCE',
               ),

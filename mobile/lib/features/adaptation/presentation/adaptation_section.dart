@@ -5,6 +5,50 @@ import '../../../core/theme/forge_theme.dart';
 import '../../progress/presentation/exercise_progress_detail_screen.dart';
 import '../data/adaptation_models.dart';
 
+const _moreDataReasonCodes = <String>{
+  'INSUFFICIENT_DATA',
+  'INSUFFICIENT_COMPLETED_SESSIONS',
+  'MISSING_RPE_DATA',
+};
+
+bool _needsMoreDataRecommendation(AdaptationRecommendationData recommendation) {
+  return recommendation.action == 'KEEP_CURRENT' &&
+      recommendation.reasonCodes.any(_moreDataReasonCodes.contains);
+}
+
+int _needsMoreDataCount(AdaptationOverviewData overview) {
+  return overview.recommendations.where(_needsMoreDataRecommendation).length;
+}
+
+int _genuineKeepCurrentCount(AdaptationOverviewData overview) {
+  final needsMoreData = _needsMoreDataCount(overview);
+
+  final remaining = overview.keepCurrent - needsMoreData;
+
+  return remaining < 0 ? 0 : remaining;
+}
+
+String _emptyAdaptationMessage(AdaptationOverviewData overview) {
+  final needsMoreData = _needsMoreDataCount(overview);
+
+  final keepCurrent = _genuineKeepCurrentCount(overview);
+
+  if (needsMoreData > 0 && keepCurrent > 0) {
+    return 'Some exercises need more data. '
+        'Others should stay at their '
+        'current training load.';
+  }
+
+  if (needsMoreData > 0) {
+    return 'Keep completing sessions and '
+        'log RPE across all sets to unlock '
+        'training adjustments.';
+  }
+
+  return 'No training changes are '
+      'recommended right now.';
+}
+
 class AdaptationSection extends StatelessWidget {
   const AdaptationSection({
     required this.state,
@@ -38,13 +82,6 @@ class AdaptationSection extends StatelessWidget {
             .take(5)
             .toList(growable: false);
 
-        final needsMoreData = overview.recommendations.any(
-          (item) =>
-              item.reasonCodes.contains('INSUFFICIENT_DATA') ||
-              item.reasonCodes.contains('INSUFFICIENT_COMPLETED_SESSIONS') ||
-              item.reasonCodes.contains('MISSING_RPE_DATA'),
-        );
-
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -53,14 +90,7 @@ class AdaptationSection extends StatelessWidget {
             const SizedBox(height: ForgeSpacing.md),
 
             if (actionable.isEmpty)
-              _AdaptationMessage(
-                message: needsMoreData
-                    ? 'Keep logging workouts and RPE '
-                          'to build stronger adaptation '
-                          'signals.'
-                    : 'No training changes are '
-                          'recommended right now.',
-              )
+              _AdaptationMessage(message: _emptyAdaptationMessage(overview))
             else
               for (var index = 0; index < actionable.length; index++) ...[
                 _AdaptationRow(recommendation: actionable[index]),
@@ -83,6 +113,10 @@ class _AdaptationSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ready = overview.progressLoad + overview.progressReps;
+
+    final needsMoreData = _needsMoreDataCount(overview);
+
+    final keepCurrent = _genuineKeepCurrentCount(overview);
 
     final chips = <Widget>[];
 
@@ -116,10 +150,20 @@ class _AdaptationSummary extends StatelessWidget {
       );
     }
 
-    if (chips.isEmpty) {
+    if (needsMoreData > 0) {
       chips.add(
         _CountChip(
-          value: overview.keepCurrent,
+          value: needsMoreData,
+          label: 'NEED MORE DATA',
+          color: ForgeColors.textMuted,
+        ),
+      );
+    }
+
+    if (keepCurrent > 0) {
+      chips.add(
+        _CountChip(
+          value: keepCurrent,
           label: 'KEEP CURRENT',
           color: ForgeColors.textSecondary,
         ),
