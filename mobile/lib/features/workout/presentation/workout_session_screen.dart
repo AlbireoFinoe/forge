@@ -1147,7 +1147,7 @@ class _WorkoutGuidance extends StatelessWidget {
   Widget build(BuildContext context) {
     final presentation = adaptationPresentationFor(recommendation);
 
-    final suggestion = adaptationSuggestionFor(recommendation);
+    final suggestion = adaptationWorkoutSuggestionFor(recommendation);
 
     return Container(
       width: double.infinity,

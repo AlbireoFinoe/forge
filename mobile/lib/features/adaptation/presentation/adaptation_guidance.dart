@@ -135,6 +135,51 @@ String? adaptationSuggestionFor(AdaptationRecommendationData item) {
   return null;
 }
 
+String? adaptationWorkoutSuggestionFor(AdaptationRecommendationData item) {
+  final parts = <String>[];
+
+  final load = item.suggestedLoadChangePercent;
+
+  if (load != null && load != 0) {
+    parts.add('${_signedDouble(load)}% load');
+  }
+
+  final reps = item.suggestedRepChange;
+
+  if (reps != null && reps != 0) {
+    parts.add(
+      '${_signedInt(reps)} '
+      '${reps.abs() == 1 ? 'rep' : 'reps'}',
+    );
+  }
+
+  final sets = item.suggestedSetChange;
+
+  if (sets != null && sets != 0) {
+    parts.add(
+      '${_signedInt(sets)} '
+      '${sets.abs() == 1 ? 'set' : 'sets'}',
+    );
+  }
+
+  if (parts.isNotEmpty) {
+    return 'This session: '
+        '${parts.join(' \u2022 ')}';
+  }
+
+  if (item.action == 'HOLD_LOAD') {
+    return 'Keep your current load '
+        'this session';
+  }
+
+  if (item.action == 'KEEP_CURRENT') {
+    return 'Maintain your current training '
+        'load this session';
+  }
+
+  return null;
+}
+
 String adaptationReasonLabel(String code) {
   const labels = {
     'PERFORMANCE_IMPROVING': 'Performance improving',
