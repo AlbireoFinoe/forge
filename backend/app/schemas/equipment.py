@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -40,3 +41,44 @@ class UserEquipmentUpdate(BaseModel):
 
 class UserEquipmentResponse(BaseModel):
     equipment: list[EquipmentResponse]
+
+
+class UserLoadPreferenceItemUpdate(BaseModel):
+    equipment_code: str = Field(
+        min_length=1,
+    )
+    increment_kg: Decimal = Field(
+        gt=0,
+    )
+
+
+class UserLoadPreferenceUpdate(BaseModel):
+    preferences: list[
+        UserLoadPreferenceItemUpdate
+    ]
+
+    @model_validator(mode="after")
+    def validate_unique_equipment_codes(self):
+        normalized = [
+            item.equipment_code.upper()
+            for item in self.preferences
+        ]
+
+        if len(normalized) != len(set(normalized)):
+            raise ValueError(
+                "equipment_code cannot contain duplicates"
+            )
+
+        return self
+
+
+class UserLoadPreferenceItemResponse(BaseModel):
+    equipment_code: str
+    equipment_name: str
+    increment_kg: Decimal
+
+
+class UserLoadPreferenceResponse(BaseModel):
+    preferences: list[
+        UserLoadPreferenceItemResponse
+    ]

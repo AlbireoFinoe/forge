@@ -4,7 +4,11 @@ from sqlalchemy.orm import Session
 from app.models.equipment import Equipment
 from app.models.user import User
 from app.models.user_equipment import UserEquipment
-from app.schemas.equipment import UserEquipmentUpdate
+from app.models.user_load_preference import UserLoadPreference
+from app.schemas.equipment import (
+    UserEquipmentUpdate,
+    UserLoadPreferenceUpdate,
+)
 from app.services.training_setup_revision import (
     bump_training_setup_revision,
 )
@@ -117,6 +121,148 @@ def set_user_equipment(
     db.commit()
 
     return get_user_equipment(
+        db,
+        user,
+    )
+
+
+LOAD_BEARING_EQUIPMENT_CODES = frozenset(
+    {
+        "BARBELL",
+        "DUMBBELL",
+        "CABLE",
+        "MACHINE",
+        "SMITH_MACHINE",
+    }
+)
+
+
+def _validate_load_preference_codes(
+    codes: list[str],
+    catalog_codes: set[str],
+) -> None:
+    requested_codes = {
+        code.upper()
+        for code in codes
+    }
+
+    unknown_codes = sorted(
+        requested_codes - catalog_codes
+    )
+
+    if unknown_codes:
+        raise ValueError(
+            "Unknown equipment codes: "
+            + ", ".join(unknown_codes)
+        )
+
+    unsupported_codes = sorted(
+        requested_codes
+        - LOAD_BEARING_EQUIPMENT_CODES
+    )
+
+    if unsupported_codes:
+        raise ValueError(
+            "Load increments are not supported for: "
+            + ", ".join(unsupported_codes)
+        )
+
+
+def get_user_load_preferences(
+    db: Session,
+    user: User,
+) -> list[
+    tuple[
+        UserLoadPreference,
+        Equipment,
+    ]
+]:
+    statement = (
+        select(
+            UserLoadPreference,
+            Equipment,
+        )
+        .join(
+            Equipment,
+            UserLoadPreference.equipment_id
+            == Equipment.id,
+        )
+        .where(
+            UserLoadPreference.user_id
+            == user.id
+        )
+        .order_by(
+            Equipment.name
+        )
+    )
+
+    return list(
+        db.execute(statement).all()
+    )
+
+
+def set_user_load_preferences(
+    db: Session,
+    user: User,
+    payload: UserLoadPreferenceUpdate,
+) -> list[
+    tuple[
+        UserLoadPreference,
+        Equipment,
+    ]
+]:
+    catalog = list(
+        db.scalars(
+            select(Equipment)
+        ).all()
+    )
+
+    catalog_map = {
+        equipment.code.upper(): equipment
+        for equipment in catalog
+    }
+
+    codes = [
+        item.equipment_code.upper()
+        for item in payload.preferences
+    ]
+
+    _validate_load_preference_codes(
+        codes,
+        set(catalog_map),
+    )
+
+    db.execute(
+        delete(
+            UserLoadPreference
+        ).where(
+            UserLoadPreference.user_id
+            == user.id
+        )
+    )
+
+    for item in payload.preferences:
+        equipment_code = (
+            item.equipment_code.upper()
+        )
+
+        db.add(
+            UserLoadPreference(
+                user_id=user.id,
+                equipment_id=(
+                    catalog_map[
+                        equipment_code
+                    ].id
+                ),
+                increment_kg=(
+                    item.increment_kg
+                ),
+            )
+        )
+
+    db.commit()
+
+    return get_user_load_preferences(
         db,
         user,
     )
