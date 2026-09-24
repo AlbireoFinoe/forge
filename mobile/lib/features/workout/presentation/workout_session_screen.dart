@@ -6,6 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/weekdays.dart';
 import '../../../core/theme/forge_theme.dart';
 import '../../exercise/presentation/exercise_detail_sheet.dart';
+import '../../adaptation/data/adaptation_models.dart';
+import '../../adaptation/presentation/adaptation_guidance.dart';
+import '../../adaptation/presentation/adaptation_provider.dart';
 import '../data/workout_models.dart';
 import '../data/workout_repository.dart';
 import 'workout_controller.dart';
@@ -375,6 +378,20 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
   Widget build(BuildContext context) {
     final workout = ref.watch(workoutControllerProvider);
 
+    final adaptation = ref.watch(adaptationOverviewProvider);
+
+    final adaptationByExerciseCode = adaptation.maybeWhen(
+      data: (overview) {
+        return <String, AdaptationRecommendationData>{
+          for (final recommendation in overview.recommendations)
+            recommendation.exerciseCode: recommendation,
+        };
+      },
+      orElse: () {
+        return const <String, AdaptationRecommendationData>{};
+      },
+    );
+
     return Scaffold(
       appBar: AppBar(title: const Text('WORKOUT')),
       bottomNavigationBar:
@@ -430,6 +447,7 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
 
           return _WorkoutContent(
             workout: session,
+            adaptationByExerciseCode: adaptationByExerciseCode,
             isFinishing: _isFinishing,
             restRemainingSeconds: _restRemainingSeconds,
             restExerciseId: _restExerciseId,
@@ -448,6 +466,7 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
 class _WorkoutContent extends StatelessWidget {
   const _WorkoutContent({
     required this.workout,
+    required this.adaptationByExerciseCode,
     required this.isFinishing,
     required this.restRemainingSeconds,
     required this.restExerciseId,
@@ -457,6 +476,9 @@ class _WorkoutContent extends StatelessWidget {
   });
 
   final WorkoutSessionData workout;
+
+  final Map<String, AdaptationRecommendationData> adaptationByExerciseCode;
+
   final bool isFinishing;
 
   final int restRemainingSeconds;
@@ -534,6 +556,10 @@ class _WorkoutContent extends StatelessWidget {
           for (var index = 0; index < workout.exercises.length; index++) ...[
             _WorkoutExerciseCard(
               exercise: workout.exercises[index],
+              recommendation:
+                  adaptationByExerciseCode[workout
+                      .exercises[index]
+                      .exerciseCode],
               exerciseNumber: index + 1,
               isResting:
                   restRemainingSeconds > 0 &&
@@ -846,6 +872,7 @@ String _formatRestTime(int seconds) {
 class _WorkoutExerciseCard extends StatelessWidget {
   const _WorkoutExerciseCard({
     required this.exercise,
+    required this.recommendation,
     required this.exerciseNumber,
     required this.isResting,
     required this.onLogSet,
@@ -853,6 +880,9 @@ class _WorkoutExerciseCard extends StatelessWidget {
   });
 
   final WorkoutExerciseData exercise;
+
+  final AdaptationRecommendationData? recommendation;
+
   final int exerciseNumber;
   final bool isResting;
 
@@ -878,6 +908,15 @@ class _WorkoutExerciseCard extends StatelessWidget {
     }
 
     final resolved = exercise.isCompleted || exercise.isSkipped;
+
+    final rawGuidance = recommendation;
+
+    final guidance =
+        exercise.isPending &&
+            rawGuidance != null &&
+            !adaptationNeedsMoreData(rawGuidance)
+        ? rawGuidance
+        : null;
 
     return Container(
       decoration: BoxDecoration(
@@ -1034,6 +1073,18 @@ class _WorkoutExerciseCard extends StatelessWidget {
             ),
           ),
 
+          if (guidance != null) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                ForgeSpacing.lg,
+                0,
+                ForgeSpacing.lg,
+                ForgeSpacing.md,
+              ),
+              child: _WorkoutGuidance(recommendation: guidance),
+            ),
+          ],
+
           const Divider(height: 1),
 
           Padding(
@@ -1081,6 +1132,97 @@ class _WorkoutExerciseCard extends StatelessWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkoutGuidance extends StatelessWidget {
+  const _WorkoutGuidance({required this.recommendation});
+
+  final AdaptationRecommendationData recommendation;
+
+  @override
+  Widget build(BuildContext context) {
+    final presentation = adaptationPresentationFor(recommendation);
+
+    final suggestion = adaptationSuggestionFor(recommendation);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: ForgeSpacing.md,
+        vertical: ForgeSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: presentation.color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(ForgeRadius.md),
+        border: Border.all(color: presentation.color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(presentation.icon, size: 18, color: presentation.color),
+          ),
+
+          const SizedBox(width: ForgeSpacing.sm),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'FORGE GUIDANCE',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: ForgeColors.textMuted,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+
+                const SizedBox(height: 3),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        presentation.label,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: presentation.color,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                    ),
+
+                    Text(
+                      recommendation.confidence.toUpperCase(),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: ForgeColors.textMuted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+
+                if (suggestion != null) ...[
+                  const SizedBox(height: 4),
+
+                  Text(
+                    suggestion,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: ForgeColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );
