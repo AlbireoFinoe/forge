@@ -29,6 +29,7 @@ class AdaptationRecommendationData {
     required this.suggestedLoadChangePercent,
     required this.suggestedRepChange,
     required this.suggestedSetChange,
+    required this.achievableWeightKg,
   });
 
   final String exerciseCode;
@@ -50,6 +51,12 @@ class AdaptationRecommendationData {
   final int? suggestedRepChange;
   final int? suggestedSetChange;
 
+  /// The weight (kg) achievable with the user's equipment increment after
+  /// applying [suggestedLoadChangePercent].  Null when no load preference
+  /// is configured for this exercise's equipment, or when the exercise is
+  /// bodyweight-only.
+  final double? achievableWeightKg;
+
   factory AdaptationRecommendationData.fromJson(Map<String, dynamic> json) {
     return AdaptationRecommendationData(
       exerciseCode: json['exercise_code'] as String,
@@ -69,6 +76,7 @@ class AdaptationRecommendationData {
       ),
       suggestedRepChange: json['suggested_rep_change'] as int?,
       suggestedSetChange: json['suggested_set_change'] as int?,
+      achievableWeightKg: _nullableDouble(json['achievable_weight_kg']),
     );
   }
 }

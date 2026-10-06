@@ -78,9 +78,13 @@ AdaptationPresentation adaptationPresentationFor(
 String? adaptationSuggestionFor(AdaptationRecommendationData item) {
   final parts = <String>[];
 
+  final achievable = item.achievableWeightKg;
   final load = item.suggestedLoadChangePercent;
 
-  if (load != null && load != 0) {
+  if (achievable != null) {
+    // Show the concrete target weight, not just a percentage.
+    parts.add('${_formatWeight(achievable)} kg');
+  } else if (load != null && load != 0) {
     parts.add('${_signedDouble(load)}% load');
   }
 
@@ -138,9 +142,12 @@ String? adaptationSuggestionFor(AdaptationRecommendationData item) {
 String? adaptationWorkoutSuggestionFor(AdaptationRecommendationData item) {
   final parts = <String>[];
 
+  final achievable = item.achievableWeightKg;
   final load = item.suggestedLoadChangePercent;
 
-  if (load != null && load != 0) {
+  if (achievable != null) {
+    parts.add('${_formatWeight(achievable)} kg');
+  } else if (load != null && load != 0) {
     parts.add('${_signedDouble(load)}% load');
   }
 
@@ -221,4 +228,15 @@ String _signedDouble(double value) {
       : value.toStringAsFixed(1);
 
   return value > 0 ? '+$formatted' : formatted;
+}
+
+/// Formats a weight value for display, removing unnecessary trailing zeros.
+/// Examples: 80.0 → "80", 82.5 → "82.5", 82.50 → "82.5".
+String _formatWeight(double value) {
+  if (value == value.roundToDouble()) {
+    return value.toInt().toString();
+  }
+
+  // Remove trailing zeros after decimal point.
+  return value.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '');
 }

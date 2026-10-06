@@ -1524,8 +1524,11 @@ class _SetLogSheetState extends State<_SetLogSheet> {
   void initState() {
     super.initState();
 
-    final suggestedWeight =
-        widget.workoutSet.weightKg ?? widget.previousSet?.weightKg;
+    final suggestedWeight = widget.workoutSet.weightKg ??
+        (!widget.workoutSet.isCompleted
+            ? widget.recommendation?.achievableWeightKg
+            : null) ??
+        widget.previousSet?.weightKg;
 
     final suggestedReps =
         widget.workoutSet.actualReps ??
@@ -1667,34 +1670,35 @@ class _SetLogSheetState extends State<_SetLogSheet> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: _SetLogField(
-                        controller: _weightController,
-                        label: 'WEIGHT',
-                        suffixText: 'kg',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        textInputAction: TextInputAction.next,
-                        validator: (value) {
-                          final input = value?.trim() ?? '';
+                    if (!widget.exercise.isBodyweight) ...[
+                      Expanded(
+                        child: _SetLogField(
+                          controller: _weightController,
+                          label: 'WEIGHT',
+                          suffixText: 'kg',
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          textInputAction: TextInputAction.next,
+                          validator: (value) {
+                            final input = value?.trim() ?? '';
 
-                          if (input.isEmpty) {
+                            if (input.isEmpty) {
+                              return null;
+                            }
+
+                            final weight = double.tryParse(input);
+
+                            if (weight == null || weight < 0) {
+                              return 'Invalid';
+                            }
+
                             return null;
-                          }
-
-                          final weight = double.tryParse(input);
-
-                          if (weight == null || weight < 0) {
-                            return 'Invalid';
-                          }
-
-                          return null;
-                        },
+                          },
+                        ),
                       ),
-                    ),
-
-                    const SizedBox(width: ForgeSpacing.md),
+                      const SizedBox(width: ForgeSpacing.md),
+                    ],
 
                     Expanded(
                       child: _SetLogField(
@@ -2013,22 +2017,31 @@ class _SetLoadSuggestionPanel extends StatelessWidget {
 
           const SizedBox(height: ForgeSpacing.sm),
 
-          Text(
-            'Raw suggestion: '
-            '${_formatNumber(suggestedWeightKg)} kg '
-            '($percentPrefix'
-            '${_formatNumber(changePercent)}%)',
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(fontWeight: FontWeight.w800),
-          ),
-
-          const SizedBox(height: 3),
-
-          Text(
-            'Adjust to an available weight.',
-            style: Theme.of(context).textTheme.bodySmall
-                ?.copyWith(color: ForgeColors.textMuted),
-          ),
+          if (recommendation.achievableWeightKg != null) ...[
+            Text(
+              'Target load: '
+              '${_formatNumber(recommendation.achievableWeightKg!)} kg '
+              '($percentPrefix'
+              '${_formatNumber(changePercent)}%)',
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ] else ...[
+            Text(
+              'Raw suggestion: '
+              '${_formatNumber(suggestedWeightKg)} kg '
+              '($percentPrefix'
+              '${_formatNumber(changePercent)}%)',
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              'Adjust to an available weight.',
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: ForgeColors.textMuted),
+            ),
+          ],
         ],
       ),
     );

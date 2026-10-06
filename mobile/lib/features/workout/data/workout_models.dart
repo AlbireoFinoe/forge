@@ -64,6 +64,7 @@ class WorkoutExerciseData {
     required this.targetRestSeconds,
     required this.status,
     required this.notes,
+    required this.isBodyweight,
     required this.sets,
   });
 
@@ -83,6 +84,7 @@ class WorkoutExerciseData {
 
   final String status;
   final String? notes;
+  final bool isBodyweight;
 
   final List<WorkoutSetData> sets;
 
@@ -110,6 +112,7 @@ class WorkoutExerciseData {
       targetRestSeconds: json['target_rest_seconds'] as int,
       status: json['status'] as String,
       notes: json['notes'] as String?,
+      isBodyweight: json['is_bodyweight'] as bool? ?? false,
       sets: (json['sets'] as List<dynamic>)
           .map(
             (item) =>
