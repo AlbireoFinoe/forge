@@ -93,6 +93,7 @@ def _build_exercise_response(
         ),
         status=exercise.status,
         notes=exercise.notes,
+        is_bodyweight=exercise.is_bodyweight,
         sets=[
             _build_set_response(
                 workout_set

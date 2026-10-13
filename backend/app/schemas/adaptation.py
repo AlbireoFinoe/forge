@@ -23,6 +23,8 @@ class AdaptationRecommendationResponse(BaseModel):
     suggested_rep_change: int | None
     suggested_set_change: int | None
 
+    achievable_weight_kg: Decimal | None
+
 
 class AdaptationOverviewResponse(BaseModel):
     total_exercises: int

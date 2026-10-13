@@ -133,3 +133,19 @@ class WorkoutExercise(Base):
         Text,
         nullable=True,
     )
+
+    @property
+    def is_bodyweight(self) -> bool:
+        code = self.exercise_code.upper()
+        return "BODYWEIGHT" in code or code in {
+            "PUSH_UP",
+            "PLANK",
+            "PULL_UP",
+            "CHIN_UP",
+            "DIP",
+            "CRUNCH",
+            "SIT_UP",
+            "BURPEE",
+            "MOUNTAIN_CLIMBER",
+            "JUMPING_JACK",
+        }

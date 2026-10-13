@@ -4,8 +4,15 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.equipment import Equipment
 from app.models.exercise import Exercise
+from app.models.exercise_equipment import ExerciseEquipment
 from app.models.user import User
+from app.models.user_load_preference import UserLoadPreference
+from app.services.load_resolution_service import (
+    LoadResolution,
+    resolve_achievable_load,
+)
 from app.services.progress_service import (
     ExerciseHistoryNotFoundError,
     get_exercise_progress_analysis,
@@ -53,6 +60,8 @@ class ExerciseAdaptationRecommendation:
     suggested_load_change_percent: float | None
     suggested_rep_change: int | None
     suggested_set_change: int | None
+
+    achievable_weight_kg: Decimal | None
 
 @dataclass(frozen=True)
 class AdaptationOverview:
@@ -214,6 +223,41 @@ def decide_adaptation(
     )
 
 
+def _get_increment_for_exercise(
+    db: Session,
+    user: User,
+    exercise_code: str,
+) -> Decimal | None:
+    """
+    Return the user's load increment (kg) for the first equipment
+    associated with the given exercise for which the user has a
+    preference configured.  Returns None when no preference is found.
+    """
+    row = db.execute(
+        select(UserLoadPreference.increment_kg)
+        .join(
+            ExerciseEquipment,
+            ExerciseEquipment.equipment_id
+            == UserLoadPreference.equipment_id,
+        )
+        .join(
+            Exercise,
+            Exercise.id == ExerciseEquipment.exercise_id,
+        )
+        .where(
+            UserLoadPreference.user_id == user.id,
+            Exercise.code == exercise_code,
+        )
+        .order_by(UserLoadPreference.increment_kg)
+        .limit(1)
+    ).one_or_none()
+
+    if row is None:
+        return None
+
+    return row[0]
+
+
 def get_exercise_adaptation_recommendation(
     db: Session,
     user: User,
@@ -259,6 +303,7 @@ def get_exercise_adaptation_recommendation(
             suggested_load_change_percent=None,
             suggested_rep_change=None,
             suggested_set_change=None,
+            achievable_weight_kg=None,
         )
 
     decision = decide_adaptation(
@@ -272,6 +317,24 @@ def get_exercise_adaptation_recommendation(
         latest_average_rpe=(
             analysis.latest_average_rpe
         ),
+    )
+
+    increment_kg = _get_increment_for_exercise(
+        db=db,
+        user=user,
+        exercise_code=exercise_code,
+    )
+
+    resolution: LoadResolution | None = (
+        resolve_achievable_load(
+            latest_weight_kg=(
+                analysis.latest_top_weight_kg
+            ),
+            suggested_load_change_percent=(
+                decision.suggested_load_change_percent
+            ),
+            increment_kg=increment_kg,
+        )
     )
 
     return ExerciseAdaptationRecommendation(
@@ -307,6 +370,11 @@ def get_exercise_adaptation_recommendation(
         ),
         suggested_set_change=(
             decision.suggested_set_change
+        ),
+        achievable_weight_kg=(
+            resolution.achievable_weight_kg
+            if resolution is not None
+            else None
         ),
     )
 def get_adaptation_overview(

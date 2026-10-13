@@ -66,6 +66,9 @@ def _build_recommendation_response(
         suggested_set_change=(
             recommendation.suggested_set_change
         ),
+        achievable_weight_kg=(
+            recommendation.achievable_weight_kg
+        ),
     )
 
 
