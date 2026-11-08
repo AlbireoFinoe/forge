@@ -1524,8 +1524,7 @@ class _SetLogSheetState extends State<_SetLogSheet> {
   void initState() {
     super.initState();
 
-    final suggestedWeight =
-        widget.workoutSet.weightKg ??
+    final suggestedWeight = widget.workoutSet.weightKg ??
         (!widget.workoutSet.isCompleted
             ? widget.recommendation?.achievableWeightKg
             : null) ??

@@ -5,7 +5,8 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from app.core.database import Base, get_database_url
+from app.core.config import settings
+from app.core.database import Base
 from app import models  # noqa: F401
 
 
@@ -13,9 +14,7 @@ config = context.config
 
 config.set_main_option(
     "sqlalchemy.url",
-    get_database_url(unpooled=True)
-    .render_as_string(hide_password=False)
-    .replace("%", "%%"),
+    settings.database_url,
 )
 
 if config.config_file_name is not None:

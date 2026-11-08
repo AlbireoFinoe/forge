@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 
 class WorkoutStartRequest(BaseModel):
@@ -27,7 +27,6 @@ class WorkoutSetLogRequest(BaseModel):
 
 
 class WorkoutSetResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
     id: UUID
     set_number: int
 
@@ -40,8 +39,6 @@ class WorkoutSetResponse(BaseModel):
 
 
 class WorkoutExerciseResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     id: UUID
 
     program_exercise_id: UUID | None
@@ -58,7 +55,6 @@ class WorkoutExerciseResponse(BaseModel):
 
     status: str
     notes: str | None
-    is_bodyweight: bool
 
     sets: list[
         WorkoutSetResponse
@@ -66,8 +62,6 @@ class WorkoutExerciseResponse(BaseModel):
 
 
 class WorkoutSessionResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     id: UUID
 
     training_program_id: UUID | None
@@ -93,8 +87,6 @@ class WorkoutSessionResponse(BaseModel):
 
 
 class WorkoutSummaryResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     id: UUID
 
     program_version_number: int
