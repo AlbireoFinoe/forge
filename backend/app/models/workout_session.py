@@ -5,15 +5,22 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+
+
+ACTIVE_WORKOUT_UNIQUE_INDEX = (
+    "uq_workout_sessions_one_active_per_user"
+)
 
 
 class WorkoutSession(Base):
@@ -35,6 +42,17 @@ class WorkoutSession(Base):
         CheckConstraint(
             "day_order BETWEEN 1 AND 7",
             name="ck_workout_session_day_order",
+        ),
+        Index(
+            ACTIVE_WORKOUT_UNIQUE_INDEX,
+            "user_id",
+            unique=True,
+            postgresql_where=text(
+                "status = 'in_progress'"
+            ),
+            sqlite_where=text(
+                "status = 'in_progress'"
+            ),
         ),
     )
 

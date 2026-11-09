@@ -6,11 +6,15 @@ from fastapi import (
     HTTPException,
     status,
 )
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.user import User
+from app.models.workout_session import (
+    ACTIVE_WORKOUT_UNIQUE_INDEX,
+)
 from app.schemas.workout import (
     WorkoutExerciseResponse,
     WorkoutSessionResponse,
@@ -178,6 +182,26 @@ def start_workout_endpoint(
                 status.HTTP_422_UNPROCESSABLE_ENTITY
             ),
             detail=str(exc),
+        ) from exc
+
+    except IntegrityError as exc:
+        constraint_name = getattr(
+            getattr(exc.orig, "diag", None),
+            "constraint_name",
+            None,
+        )
+        if (
+            constraint_name
+            != ACTIVE_WORKOUT_UNIQUE_INDEX
+        ):
+            raise
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "User already has a workout "
+                "in progress"
+            ),
         ) from exc
 
     return _build_session_response(
