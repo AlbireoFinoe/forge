@@ -5,6 +5,7 @@ import time
 import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -227,6 +228,50 @@ def _create_started_postgres_workout(
             .order_by(WorkoutSet.set_number)
         ).all()
         return user.id, workout.id, exercise.id, set_ids
+
+
+def _make_postgres_workout_finish_eligible(
+    session_factory,
+    user_id,
+    workout_id,
+    *,
+    skip_exercises=False,
+):
+    with session_factory() as db:
+        user = db.get(User, user_id)
+        exercises = db.scalars(
+            select(WorkoutExercise)
+            .where(
+                WorkoutExercise.workout_session_id
+                == workout_id
+            )
+            .order_by(WorkoutExercise.exercise_order)
+        ).all()
+
+        for exercise in exercises:
+            if skip_exercises:
+                workout_service.skip_workout_exercise(
+                    db,
+                    user,
+                    exercise.id,
+                )
+                continue
+
+            sets = db.scalars(
+                select(WorkoutSet)
+                .where(
+                    WorkoutSet.workout_exercise_id
+                    == exercise.id
+                )
+                .order_by(WorkoutSet.set_number)
+            ).all()
+            for workout_set in sets:
+                log_workout_set(
+                    db,
+                    user,
+                    workout_set.id,
+                    actual_reps=8,
+                )
 
 
 def _run_postgres_requests_concurrently(
@@ -456,6 +501,145 @@ def _run_postgres_pair_with_verified_contention(
         ],
         lock_was_observed,
         second_finished_before_release,
+        lock_diagnostics,
+    )
+
+
+def _run_postgres_pair_observing_finish(
+    engine,
+    session_factory,
+    user_id,
+    *,
+    first_operation,
+    finish_operation,
+    first_ready,
+    release_first,
+):
+    backend_pids = {}
+    finish_started = threading.Event()
+
+    def run(role, operation):
+        with session_factory() as db:
+            backend_pids[role] = db.scalar(
+                text("SELECT pg_backend_pid()")
+            )
+            user = db.get(User, user_id)
+            if role == "finish":
+                finish_started.set()
+            try:
+                result = operation(db, user)
+            except HTTPException as exc:
+                return ("http", exc.status_code)
+            return ("ok", result)
+
+    executor = ThreadPoolExecutor(max_workers=2)
+    first_future = None
+    finish_future = None
+    phase_error = None
+    lock_diagnostics = None
+    lock_was_observed = False
+    finish_completed_before_release = False
+    try:
+        first_future = executor.submit(
+            run,
+            "first",
+            first_operation,
+        )
+        if not _wait_for_worker_signal(
+            first_ready,
+            first_future,
+            "First request did not reach its coordinated pause",
+        ):
+            raise TimeoutError(
+                "First request did not reach its coordinated pause."
+            )
+
+        finish_future = executor.submit(
+            run,
+            "finish",
+            finish_operation,
+        )
+        if not _wait_for_worker_signal(
+            finish_started,
+            finish_future,
+            "Finish request did not start",
+        ):
+            raise TimeoutError("Finish request did not start.")
+
+        first_pid = backend_pids["first"]
+        finish_pid = backend_pids["finish"]
+        if first_pid == finish_pid:
+            raise AssertionError(
+                "Both requests used the same PostgreSQL backend PID "
+                f"{first_pid}."
+            )
+
+        lock_was_observed, lock_diagnostics = (
+            _wait_until_postgres_backend_is_blocked(
+                engine,
+                blocked_pid=finish_pid,
+                blocker_pid=first_pid,
+                blocked_future=finish_future,
+                timeout=5,
+            )
+        )
+        finish_completed_before_release = finish_future.done()
+        if (
+            not lock_was_observed
+            and not finish_completed_before_release
+        ):
+            raise TimeoutError(
+                "Finish neither completed nor showed lock contention "
+                f"before timeout; observer={lock_diagnostics!r}"
+            )
+    except BaseException as exc:
+        phase_error = exc
+    finally:
+        release_first.set()
+        executor.shutdown(wait=True)
+
+    outcomes = {}
+    worker_errors = {}
+    for role, future in (
+        ("first", first_future),
+        ("finish", finish_future),
+    ):
+        if future is None:
+            continue
+        try:
+            outcomes[role] = future.result()
+        except BaseException as exc:
+            worker_errors[role] = "".join(
+                traceback.format_exception(
+                    type(exc),
+                    exc,
+                    exc.__traceback__,
+                )
+            )
+
+    if phase_error is not None or worker_errors:
+        details = [
+            f"Coordination failure: {phase_error!r}"
+            if phase_error is not None
+            else None,
+            f"Lock observer snapshot: {lock_diagnostics!r}",
+            f"Completed worker outcomes: {outcomes!r}",
+            *(
+                f"{role} worker exception:\n{error}"
+                for role, error in worker_errors.items()
+            ),
+        ]
+        raise AssertionError(
+            "\n".join(item for item in details if item is not None)
+        ) from phase_error
+
+    assert set(backend_pids) == {"first", "finish"}
+    assert len(set(backend_pids.values())) == 2
+    return (
+        outcomes["first"],
+        outcomes["finish"],
+        lock_was_observed,
+        finish_completed_before_release,
         lock_diagnostics,
     )
 
@@ -753,7 +937,7 @@ def test_logged_sets_remain_after_workout_completion(
     assert next_workout.status == "in_progress"
 
 
-def test_retry_finish_after_success_returns_422_and_preserves_completed_workout(
+def test_retry_finish_after_success_returns_completed_workout_without_changing_timestamp(
     db_session,
 ):
     user, program_day = _create_program(db_session)
@@ -779,15 +963,15 @@ def test_retry_finish_after_success_returns_422_and_preserves_completed_workout(
         current_user=user,
         db=db_session,
     )
-    with pytest.raises(HTTPException) as retry_error:
-        finish_workout_endpoint(
-            workout.id,
-            current_user=user,
-            db=db_session,
-        )
+    retry_response = finish_workout_endpoint(
+        workout.id,
+        current_user=user,
+        db=db_session,
+    )
 
     assert first_response.status == "completed"
-    assert retry_error.value.status_code == 422
+    assert retry_response.status == "completed"
+    assert retry_response.completed_at == first_response.completed_at
     persisted_workout = db_session.get(
         WorkoutSession,
         workout.id,
@@ -797,6 +981,488 @@ def test_retry_finish_after_success_returns_422_and_preserves_completed_workout(
         persisted_workout.completed_at
         == first_response.completed_at
     )
+
+
+def test_finish_retry_after_lost_response_is_idempotent(
+    db_session,
+):
+    user, program_day = _create_program(db_session)
+    workout = start_workout(
+        db_session,
+        user,
+        program_day.id,
+    )
+    exercise = db_session.scalar(
+        select(WorkoutExercise).where(
+            WorkoutExercise.workout_session_id
+            == workout.id
+        )
+    )
+    workout_service.skip_workout_exercise(
+        db_session,
+        user,
+        exercise.id,
+    )
+
+    finish_workout_endpoint(
+        workout.id,
+        current_user=user,
+        db=db_session,
+    )
+    db_session.expire_all()
+    committed = db_session.get(
+        WorkoutSession,
+        workout.id,
+    )
+    original_completed_at = committed.completed_at
+
+    retry_response = finish_workout_endpoint(
+        workout.id,
+        current_user=user,
+        db=db_session,
+    )
+
+    assert retry_response.status == "completed"
+    assert retry_response.completed_at == original_completed_at
+    persisted = db_session.get(WorkoutSession, workout.id)
+    assert persisted.status == "completed"
+    assert persisted.completed_at == original_completed_at
+
+
+def test_finish_rejects_pending_exercises_without_completing_session(
+    db_session,
+):
+    user, program_day = _create_program(db_session)
+    workout = start_workout(
+        db_session,
+        user,
+        program_day.id,
+    )
+
+    with pytest.raises(HTTPException) as finish_error:
+        finish_workout_endpoint(
+            workout.id,
+            current_user=user,
+            db=db_session,
+        )
+
+    assert finish_error.value.status_code == 409
+    db_session.expire_all()
+    persisted = db_session.get(
+        WorkoutSession,
+        workout.id,
+    )
+    assert persisted.status == "in_progress"
+    assert persisted.completed_at is None
+
+
+def test_finish_enforces_ownership_and_rejects_cancelled_sessions(
+    db_session,
+):
+    owner, owner_day = _create_program(
+        db_session,
+        email="finish-owner@example.test",
+    )
+    other_user, other_day = _create_program(
+        db_session,
+        email="finish-other@example.test",
+    )
+    cancelled_user, cancelled_day = _create_program(
+        db_session,
+        email="finish-cancelled@example.test",
+    )
+
+    completed_foreign = start_workout(
+        db_session,
+        other_user,
+        other_day.id,
+    )
+    completed_exercise = db_session.scalar(
+        select(WorkoutExercise).where(
+            WorkoutExercise.workout_session_id
+            == completed_foreign.id
+        )
+    )
+    workout_service.skip_workout_exercise(
+        db_session,
+        other_user,
+        completed_exercise.id,
+    )
+    finish_workout_endpoint(
+        completed_foreign.id,
+        current_user=other_user,
+        db=db_session,
+    )
+
+    active_foreign = start_workout(
+        db_session,
+        other_user,
+        other_day.id,
+    )
+    cancelled = start_workout(
+        db_session,
+        cancelled_user,
+        cancelled_day.id,
+    )
+    cancelled.status = "cancelled"
+    db_session.commit()
+
+    for foreign_workout in (
+        completed_foreign,
+        active_foreign,
+    ):
+        with pytest.raises(HTTPException) as ownership_error:
+            finish_workout_endpoint(
+                foreign_workout.id,
+                current_user=owner,
+                db=db_session,
+            )
+        assert ownership_error.value.status_code == 404
+
+    with pytest.raises(HTTPException) as cancelled_error:
+        finish_workout_endpoint(
+            cancelled.id,
+            current_user=cancelled_user,
+            db=db_session,
+        )
+
+    assert cancelled_error.value.status_code == 422
+    db_session.expire_all()
+    persisted_cancelled = db_session.get(
+        WorkoutSession,
+        cancelled.id,
+    )
+    assert persisted_cancelled.status == "cancelled"
+    assert persisted_cancelled.completed_at is None
+
+    assert db_session.get(
+        WorkoutSession,
+        active_foreign.id,
+    ).status == "in_progress"
+
+
+def test_concurrent_finish_requests_are_idempotent(
+    isolated_postgres_engine,
+    monkeypatch,
+):
+    session_factory = sessionmaker(
+        bind=isolated_postgres_engine
+    )
+    user_id, workout_id, exercise_id, _ = (
+        _create_started_postgres_workout(
+            session_factory,
+            sets=1,
+        )
+    )
+    _make_postgres_workout_finish_eligible(
+        session_factory,
+        user_id,
+        workout_id,
+        skip_exercises=True,
+    )
+    with session_factory() as db:
+        assert db.get(
+            WorkoutSession,
+            workout_id,
+        ).status == "in_progress"
+        assert db.get(
+            WorkoutExercise,
+            exercise_id,
+        ).status == "skipped"
+
+    start_barrier = threading.Barrier(2)
+    original_finish = workout_service.finish_workout
+
+    def synchronized_finish(db, user, workout_session_id):
+        start_barrier.wait(timeout=15)
+        return original_finish(
+            db,
+            user,
+            workout_session_id,
+        )
+
+    class SteppedClock:
+        _counter = 0
+        _lock = threading.Lock()
+
+        @classmethod
+        def now(cls, tz=None):
+            with cls._lock:
+                tick = cls._counter
+                cls._counter += 1
+            return datetime(
+                2030,
+                1,
+                1,
+                tzinfo=timezone.utc,
+            ) + timedelta(seconds=tick)
+
+    monkeypatch.setattr(
+        workouts_api,
+        "finish_workout",
+        synchronized_finish,
+    )
+    monkeypatch.setattr(
+        workout_service,
+        "datetime",
+        SteppedClock,
+    )
+
+    def finish_operation(db, user):
+        return finish_workout_endpoint(
+            workout_id,
+            current_user=user,
+            db=db,
+        )
+
+    outcomes = _run_postgres_requests_concurrently(
+        session_factory,
+        user_id,
+        [finish_operation, finish_operation],
+    )
+
+    assert [outcome[0] for outcome in outcomes] == ["ok", "ok"]
+    responses = [outcome[1] for outcome in outcomes]
+    assert all(response.status == "completed" for response in responses)
+    assert responses[0].completed_at == responses[1].completed_at
+
+    with session_factory() as db:
+        persisted = db.get(WorkoutSession, workout_id)
+        assert persisted.status == "completed"
+        assert persisted.completed_at == responses[0].completed_at
+        assert db.scalar(
+            select(func.count())
+            .select_from(WorkoutSession)
+            .where(WorkoutSession.user_id == user_id)
+        ) == 1
+
+
+def test_finish_and_log_set_obey_a_serial_order(
+    isolated_postgres_engine,
+    monkeypatch,
+):
+    session_factory = sessionmaker(
+        bind=isolated_postgres_engine
+    )
+    user_id, workout_id, exercise_id, set_ids = (
+        _create_started_postgres_workout(
+            session_factory,
+            sets=1,
+        )
+    )
+    _make_postgres_workout_finish_eligible(
+        session_factory,
+        user_id,
+        workout_id,
+    )
+    with session_factory() as db:
+        assert db.get(
+            WorkoutSession,
+            workout_id,
+        ).status == "in_progress"
+        assert db.get(
+            WorkoutExercise,
+            exercise_id,
+        ).status == "completed"
+        assert db.get(
+            WorkoutSet,
+            set_ids[0],
+        ).actual_reps == 8
+    first_ready = threading.Event()
+    release_first = threading.Event()
+    original_get_set = (
+        workout_service._get_workout_set_for_user
+    )
+
+    def pause_log_after_lookup(db, user, workout_set_id):
+        row = original_get_set(
+            db,
+            user,
+            workout_set_id,
+        )
+        first_ready.set()
+        if not release_first.wait(timeout=15):
+            raise TimeoutError(
+                "Test coordinator did not release Log Set."
+            )
+        return row
+
+    monkeypatch.setattr(
+        workout_service,
+        "_get_workout_set_for_user",
+        pause_log_after_lookup,
+    )
+
+    def log_operation(db, user):
+        return log_workout_set_endpoint(
+            set_ids[0],
+            WorkoutSetLogRequest(actual_reps=12),
+            current_user=user,
+            db=db,
+        )
+
+    def finish_operation(db, user):
+        return finish_workout_endpoint(
+            workout_id,
+            current_user=user,
+            db=db,
+        )
+
+    (
+        log_outcome,
+        finish_outcome,
+        finish_blocked_by_log,
+        finish_completed_before_log_release,
+        lock_diagnostics,
+    ) = _run_postgres_pair_observing_finish(
+        isolated_postgres_engine,
+        session_factory,
+        user_id,
+        first_operation=log_operation,
+        finish_operation=finish_operation,
+        first_ready=first_ready,
+        release_first=release_first,
+    )
+
+    assert finish_blocked_by_log or finish_completed_before_log_release, (
+        "Finish neither blocked behind Log Set nor completed first; "
+        f"observer={lock_diagnostics!r}"
+    )
+    assert finish_outcome[0] == "ok"
+    assert finish_outcome[1].status == "completed"
+
+    with session_factory() as db:
+        persisted_workout = db.get(
+            WorkoutSession,
+            workout_id,
+        )
+        persisted_set = db.get(
+            WorkoutSet,
+            set_ids[0],
+        )
+        assert persisted_workout.status == "completed"
+        assert persisted_workout.completed_at is not None
+        if finish_completed_before_log_release:
+            assert log_outcome == ("http", 422)
+            assert persisted_set.actual_reps == 8
+        else:
+            assert finish_blocked_by_log
+            assert log_outcome[0] == "ok"
+            assert log_outcome[1].actual_reps == 12
+            assert persisted_set.actual_reps == 12
+        assert db.get(
+            WorkoutExercise,
+            exercise_id,
+        ).status == "completed"
+
+
+def test_finish_and_skip_exercise_obey_a_serial_order(
+    isolated_postgres_engine,
+    monkeypatch,
+):
+    session_factory = sessionmaker(
+        bind=isolated_postgres_engine
+    )
+    user_id, workout_id, exercise_id, _ = (
+        _create_started_postgres_workout(
+            session_factory,
+            sets=1,
+        )
+    )
+    _make_postgres_workout_finish_eligible(
+        session_factory,
+        user_id,
+        workout_id,
+        skip_exercises=True,
+    )
+    with session_factory() as db:
+        assert db.get(
+            WorkoutSession,
+            workout_id,
+        ).status == "in_progress"
+        assert db.get(
+            WorkoutExercise,
+            exercise_id,
+        ).status == "skipped"
+    first_ready = threading.Event()
+    release_first = threading.Event()
+    original_get_exercise = (
+        workout_service._get_workout_exercise_for_user
+    )
+
+    def pause_skip_after_lookup(db, user, workout_exercise_id):
+        row = original_get_exercise(
+            db,
+            user,
+            workout_exercise_id,
+        )
+        first_ready.set()
+        if not release_first.wait(timeout=15):
+            raise TimeoutError(
+                "Test coordinator did not release Skip Exercise."
+            )
+        return row
+
+    monkeypatch.setattr(
+        workout_service,
+        "_get_workout_exercise_for_user",
+        pause_skip_after_lookup,
+    )
+
+    def skip_operation(db, user):
+        return skip_workout_exercise_endpoint(
+            exercise_id,
+            current_user=user,
+            db=db,
+        )
+
+    def finish_operation(db, user):
+        return finish_workout_endpoint(
+            workout_id,
+            current_user=user,
+            db=db,
+        )
+
+    (
+        skip_outcome,
+        finish_outcome,
+        finish_blocked_by_skip,
+        finish_completed_before_skip_release,
+        lock_diagnostics,
+    ) = _run_postgres_pair_observing_finish(
+        isolated_postgres_engine,
+        session_factory,
+        user_id,
+        first_operation=skip_operation,
+        finish_operation=finish_operation,
+        first_ready=first_ready,
+        release_first=release_first,
+    )
+
+    assert finish_blocked_by_skip or finish_completed_before_skip_release, (
+        "Finish neither blocked behind Skip Exercise nor completed first; "
+        f"observer={lock_diagnostics!r}"
+    )
+    assert finish_outcome[0] == "ok"
+    assert finish_outcome[1].status == "completed"
+
+    with session_factory() as db:
+        persisted_workout = db.get(
+            WorkoutSession,
+            workout_id,
+        )
+        persisted_exercise = db.get(
+            WorkoutExercise,
+            exercise_id,
+        )
+        assert persisted_workout.status == "completed"
+        assert persisted_workout.completed_at is not None
+        assert persisted_exercise.status == "skipped"
+        if finish_completed_before_skip_release:
+            assert skip_outcome == ("http", 422)
+        else:
+            assert finish_blocked_by_skip
+            assert skip_outcome[0] == "ok"
 
 
 def test_concurrent_logs_of_last_sets_leave_exercise_completed(
@@ -875,7 +1541,7 @@ def test_concurrent_logs_of_last_sets_leave_exercise_completed(
 
     assert lock_was_observed, (
         "Second PostgreSQL backend was not blocked by the first "
-        "request's WorkoutExercise row lock. "
+        "request's WorkoutSession row lock. "
         f"Observer snapshot: {lock_diagnostics!r}"
     )
     assert not second_finished_before_release
@@ -996,7 +1662,7 @@ def test_concurrent_log_and_skip_allow_only_one_transition(
 
     assert lock_was_observed, (
         "Skip request was not blocked by the Log Set request's "
-        "WorkoutExercise row lock. "
+        "WorkoutSession row lock. "
         f"Observer snapshot: {lock_diagnostics!r}"
     )
     assert not second_finished_before_release
@@ -1173,7 +1839,7 @@ def test_negative_control_without_lock_reproduces_log_skip_race(
         assert workout_set.actual_reps == 10
 
 
-def test_concurrent_log_and_finish_do_not_finish_pending_workout(
+def test_concurrent_log_and_finish_serialize_on_workout_session(
     isolated_postgres_engine,
     monkeypatch,
 ):
@@ -1186,17 +1852,19 @@ def test_concurrent_log_and_finish_do_not_finish_pending_workout(
             sets=1,
         )
     )
-    log_read = threading.Event()
-    finish_count_read = threading.Event()
+    first_ready = threading.Event()
+    release_first = threading.Event()
     original_get_set = (
         workout_service._get_workout_set_for_user
     )
 
     def synchronized_get_set(db, user, workout_set_id):
         row = original_get_set(db, user, workout_set_id)
-        log_read.set()
-        if not finish_count_read.wait(timeout=15):
-            raise TimeoutError("Finish request did not inspect pending exercises")
+        first_ready.set()
+        if not release_first.wait(timeout=15):
+            raise TimeoutError(
+                "Test coordinator did not release Log Set."
+            )
         return row
 
     monkeypatch.setattr(
@@ -1214,54 +1882,49 @@ def test_concurrent_log_and_finish_do_not_finish_pending_workout(
         )
 
     def finish_operation(db, user):
-        original_scalar = db.scalar
-
-        def synchronized_scalar(statement, *args, **kwargs):
-            if "count(workout_exercises.id)" in str(statement).lower():
-                if not log_read.wait(timeout=15):
-                    raise TimeoutError("Log request did not read its set")
-                result = original_scalar(
-                    statement,
-                    *args,
-                    **kwargs,
-                )
-                finish_count_read.set()
-                return result
-            return original_scalar(
-                statement,
-                *args,
-                **kwargs,
-            )
-
-        db.scalar = synchronized_scalar
         return finish_workout_endpoint(
             workout_id,
             current_user=user,
             db=db,
         )
 
-    outcomes = _run_postgres_requests_concurrently(
+    (
+        log_outcome,
+        finish_outcome,
+        finish_blocked_by_log,
+        finish_completed_before_log_release,
+        lock_diagnostics,
+    ) = _run_postgres_pair_observing_finish(
+        isolated_postgres_engine,
         session_factory,
         user_id,
-        [log_operation, finish_operation],
+        first_operation=log_operation,
+        finish_operation=finish_operation,
+        first_ready=first_ready,
+        release_first=release_first,
     )
 
-    assert sorted(
-        outcome[1] if outcome[0] == "http" else 200
-        for outcome in outcomes
-    ) == [200, 409]
+    assert finish_blocked_by_log, (
+        "Finish did not block on the Log Set request's "
+        f"WorkoutSession lock: {lock_diagnostics!r}"
+    )
+    assert not finish_completed_before_log_release
+    assert log_outcome[0] == "ok"
+    assert finish_outcome[0] == "ok"
+    assert finish_outcome[1].status == "completed"
     with session_factory() as db:
         workout = db.get(WorkoutSession, workout_id)
         exercise = db.get(WorkoutExercise, exercise_id)
         workout_set = db.get(WorkoutSet, set_ids[0])
 
-        assert workout.status == "in_progress"
+        assert workout.status == "completed"
+        assert workout.completed_at is not None
         assert exercise.status == "completed"
         assert workout_set.is_completed
         assert workout_set.actual_reps == 10
 
 
-def test_concurrent_skip_and_finish_leave_skipped_workout_active(
+def test_concurrent_skip_and_finish_serialize_on_workout_session(
     isolated_postgres_engine,
     monkeypatch,
 ):
@@ -1274,8 +1937,8 @@ def test_concurrent_skip_and_finish_leave_skipped_workout_active(
             sets=1,
         )
     )
-    skip_read = threading.Event()
-    finish_count_read = threading.Event()
+    first_ready = threading.Event()
+    release_first = threading.Event()
     original_get_exercise = (
         workout_service._get_workout_exercise_for_user
     )
@@ -1290,9 +1953,11 @@ def test_concurrent_skip_and_finish_leave_skipped_workout_active(
             user,
             workout_exercise_id,
         )
-        skip_read.set()
-        if not finish_count_read.wait(timeout=15):
-            raise TimeoutError("Finish request did not inspect pending exercises")
+        first_ready.set()
+        if not release_first.wait(timeout=15):
+            raise TimeoutError(
+                "Test coordinator did not release Skip Exercise."
+            )
         return row
 
     monkeypatch.setattr(
@@ -1309,47 +1974,42 @@ def test_concurrent_skip_and_finish_leave_skipped_workout_active(
         )
 
     def finish_operation(db, user):
-        original_scalar = db.scalar
-
-        def synchronized_scalar(statement, *args, **kwargs):
-            if "count(workout_exercises.id)" in str(statement).lower():
-                if not skip_read.wait(timeout=15):
-                    raise TimeoutError("Skip request did not read exercise")
-                result = original_scalar(
-                    statement,
-                    *args,
-                    **kwargs,
-                )
-                finish_count_read.set()
-                return result
-            return original_scalar(
-                statement,
-                *args,
-                **kwargs,
-            )
-
-        db.scalar = synchronized_scalar
         return finish_workout_endpoint(
             workout_id,
             current_user=user,
             db=db,
         )
 
-    outcomes = _run_postgres_requests_concurrently(
+    (
+        skip_outcome,
+        finish_outcome,
+        finish_blocked_by_skip,
+        finish_completed_before_skip_release,
+        lock_diagnostics,
+    ) = _run_postgres_pair_observing_finish(
+        isolated_postgres_engine,
         session_factory,
         user_id,
-        [skip_operation, finish_operation],
+        first_operation=skip_operation,
+        finish_operation=finish_operation,
+        first_ready=first_ready,
+        release_first=release_first,
     )
 
-    assert sorted(
-        outcome[1] if outcome[0] == "http" else 200
-        for outcome in outcomes
-    ) == [200, 409]
+    assert finish_blocked_by_skip, (
+        "Finish did not block on the Skip Exercise request's "
+        f"WorkoutSession lock: {lock_diagnostics!r}"
+    )
+    assert not finish_completed_before_skip_release
+    assert skip_outcome[0] == "ok"
+    assert finish_outcome[0] == "ok"
+    assert finish_outcome[1].status == "completed"
     with session_factory() as db:
         workout = db.get(WorkoutSession, workout_id)
         exercise = db.get(WorkoutExercise, exercise_id)
 
-        assert workout.status == "in_progress"
+        assert workout.status == "completed"
+        assert workout.completed_at is not None
         assert exercise.status == "skipped"
 
 

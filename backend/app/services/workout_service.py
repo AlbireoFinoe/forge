@@ -277,10 +277,9 @@ def _get_workout_exercise_for_user(
     user: User,
     workout_exercise_id: uuid.UUID,
 ):
-    return db.execute(
+    workout_session_id = db.scalar(
         select(
-            WorkoutExercise,
-            WorkoutSession,
+            WorkoutExercise.workout_session_id
         )
         .join(
             WorkoutSession,
@@ -293,13 +292,70 @@ def _get_workout_exercise_for_user(
             WorkoutSession.user_id
             == user.id,
         )
+    )
+
+    if workout_session_id is None:
+        return None
+
+    workout_session = _lock_workout_session_for_user(
+        db,
+        user,
+        workout_session_id,
+    )
+    if workout_session is None:
+        return None
+
+    if workout_session.status != "in_progress":
+        raise WorkoutNotInProgressError(
+            "Workout is not in progress"
+        )
+
+    workout_exercise = _lock_workout_exercise(
+        db,
+        workout_session.id,
+        workout_exercise_id,
+    )
+    if workout_exercise is None:
+        return None
+
+    return workout_exercise, workout_session
+
+
+def _lock_workout_session_for_user(
+    db: Session,
+    user: User,
+    workout_session_id: uuid.UUID,
+) -> WorkoutSession | None:
+    return db.scalar(
+        select(WorkoutSession)
+        .where(
+            WorkoutSession.id == workout_session_id,
+            WorkoutSession.user_id == user.id,
+        )
         .execution_options(
             populate_existing=True
         )
-        .with_for_update(
-            of=WorkoutExercise
+        .with_for_update()
+    )
+
+
+def _lock_workout_exercise(
+    db: Session,
+    workout_session_id: uuid.UUID,
+    workout_exercise_id: uuid.UUID,
+) -> WorkoutExercise | None:
+    return db.scalar(
+        select(WorkoutExercise)
+        .where(
+            WorkoutExercise.id == workout_exercise_id,
+            WorkoutExercise.workout_session_id
+            == workout_session_id,
         )
-    ).one_or_none()
+        .execution_options(
+            populate_existing=True
+        )
+        .with_for_update()
+    )
 
 
 def skip_workout_exercise(
@@ -436,15 +492,10 @@ def finish_workout(
     workout_session_id: uuid.UUID,
 ) -> WorkoutSession:
     try:
-        workout_session = db.scalar(
-            select(
-                WorkoutSession
-            ).where(
-                WorkoutSession.id
-                == workout_session_id,
-                WorkoutSession.user_id
-                == user.id,
-            )
+        workout_session = _lock_workout_session_for_user(
+            db,
+            user,
+            workout_session_id,
         )
 
         if workout_session is None:
@@ -452,30 +503,27 @@ def finish_workout(
                 "Workout session not found"
             )
 
-        if (
-            workout_session.status
-            != "in_progress"
-        ):
+        if workout_session.status == "completed":
+            db.commit()
+            db.refresh(workout_session)
+            return workout_session
+
+        if workout_session.status != "in_progress":
             raise WorkoutNotInProgressError(
                 "Workout is not in progress"
             )
 
         pending_count = db.scalar(
             select(
-                func.count(
-                    WorkoutExercise.id
-                )
+                func.count(WorkoutExercise.id)
             ).where(
                 WorkoutExercise.workout_session_id
                 == workout_session.id,
-                WorkoutExercise.status
-                == "pending",
+                WorkoutExercise.status == "pending",
             )
         )
 
-        pending_count = int(
-            pending_count or 0
-        )
+        pending_count = int(pending_count or 0)
 
         if pending_count > 0:
             raise WorkoutHasPendingExercisesError(
@@ -485,18 +533,11 @@ def finish_workout(
                 f"skip them before finishing"
             )
 
-        workout_session.status = (
-            "completed"
-        )
-
-        workout_session.completed_at = (
-            datetime.now(timezone.utc)
-        )
+        workout_session.status = "completed"
+        workout_session.completed_at = datetime.now(timezone.utc)
 
         db.commit()
-        db.refresh(
-            workout_session
-        )
+        db.refresh(workout_session)
 
         return workout_session
 
@@ -510,11 +551,11 @@ def _get_workout_set_for_user(
     user: User,
     workout_set_id: uuid.UUID,
 ):
-    return db.execute(
+    row = db.execute(
         select(
-            WorkoutSet,
-            WorkoutExercise,
-            WorkoutSession,
+            WorkoutSet.id,
+            WorkoutExercise.id,
+            WorkoutSession.id,
         )
         .join(
             WorkoutExercise,
@@ -530,13 +571,48 @@ def _get_workout_set_for_user(
             WorkoutSet.id == workout_set_id,
             WorkoutSession.user_id == user.id,
         )
+    ).one_or_none()
+
+    if row is None:
+        return None
+
+    workout_set_id, workout_exercise_id, workout_session_id = row
+    workout_session = _lock_workout_session_for_user(
+        db,
+        user,
+        workout_session_id,
+    )
+    if workout_session is None:
+        return None
+
+    if workout_session.status != "in_progress":
+        raise WorkoutNotInProgressError(
+            "Workout is not in progress"
+        )
+
+    workout_exercise = _lock_workout_exercise(
+        db,
+        workout_session.id,
+        workout_exercise_id,
+    )
+    if workout_exercise is None:
+        return None
+
+    workout_set = db.scalar(
+        select(WorkoutSet)
+        .where(
+            WorkoutSet.id == workout_set_id,
+            WorkoutSet.workout_exercise_id
+            == workout_exercise.id,
+        )
         .execution_options(
             populate_existing=True
         )
-        .with_for_update(
-            of=WorkoutExercise
-        )
-    ).one_or_none()
+    )
+    if workout_set is None:
+        return None
+
+    return workout_set, workout_exercise, workout_session
 
 
 def _validate_workout_set_values(
