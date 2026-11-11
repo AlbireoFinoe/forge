@@ -293,6 +293,12 @@ def _get_workout_exercise_for_user(
             WorkoutSession.user_id
             == user.id,
         )
+        .execution_options(
+            populate_existing=True
+        )
+        .with_for_update(
+            of=WorkoutExercise
+        )
     ).one_or_none()
 
 
@@ -523,6 +529,12 @@ def _get_workout_set_for_user(
         .where(
             WorkoutSet.id == workout_set_id,
             WorkoutSession.user_id == user.id,
+        )
+        .execution_options(
+            populate_existing=True
+        )
+        .with_for_update(
+            of=WorkoutExercise
         )
     ).one_or_none()
 
