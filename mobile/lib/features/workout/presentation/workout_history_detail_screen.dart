@@ -19,24 +19,63 @@ class WorkoutHistoryDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final workout = ref.watch(workoutDetailProvider(workoutId));
+    final historySyncError = ref
+        .watch(workoutControllerProvider)
+        .value
+        ?.historySyncError;
 
     return Scaffold(
       appBar: AppBar(title: Text(title)),
-      body: workout.when(
-        loading: () {
-          return const Center(child: CircularProgressIndicator());
-        },
-        error: (error, stackTrace) {
-          return _DetailErrorState(
-            onRetry: () {
-              ref.invalidate(workoutDetailProvider(workoutId));
-            },
-          );
-        },
-        data: (session) {
-          return _WorkoutHistoryContent(workout: session);
-        },
+      body: Column(
+        children: [
+          if (historySyncError != null)
+            _HistorySyncWarning(
+              message: historySyncError,
+              onRefresh: () {
+                ref.read(workoutControllerProvider.notifier).refresh();
+              },
+            ),
+          Expanded(
+            child: workout.when(
+              loading: () {
+                return const Center(child: CircularProgressIndicator());
+              },
+              error: (error, stackTrace) {
+                return _DetailErrorState(
+                  onRetry: () {
+                    ref.invalidate(workoutDetailProvider(workoutId));
+                  },
+                );
+              },
+              data: (session) {
+                return _WorkoutHistoryContent(workout: session);
+              },
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _HistorySyncWarning extends StatelessWidget {
+  const _HistorySyncWarning({required this.message, required this.onRefresh});
+
+  final String message;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialBanner(
+      content: Text(message),
+      leading: const Icon(Icons.sync_problem_outlined),
+      actions: [
+        TextButton.icon(
+          onPressed: onRefresh,
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('REFRESH HISTORY'),
+        ),
+      ],
     );
   }
 }

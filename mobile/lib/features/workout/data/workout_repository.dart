@@ -3,11 +3,29 @@ import 'package:dio/dio.dart';
 import '../../../core/api/api_client.dart';
 import 'workout_models.dart';
 
+enum WorkoutExceptionKind {
+  unexpected,
+  httpResponse,
+  transport,
+  finishNotConfirmed,
+  finishOutcomeUnknown,
+}
+
 class WorkoutException implements Exception {
-  const WorkoutException(this.message, {this.statusCode});
+  const WorkoutException(
+    this.message, {
+    this.statusCode,
+    this.kind = WorkoutExceptionKind.unexpected,
+    this.cause,
+  });
 
   final String message;
   final int? statusCode;
+  final WorkoutExceptionKind kind;
+  final Object? cause;
+
+  bool get isAmbiguousTransport =>
+      kind == WorkoutExceptionKind.transport && statusCode == null;
 
   @override
   String toString() => message;
@@ -131,9 +149,21 @@ class WorkoutRepository {
   }
 
   WorkoutException _toWorkoutException(DioException error) {
+    final kind = error.response != null
+        ? WorkoutExceptionKind.httpResponse
+        : switch (error.type) {
+            DioExceptionType.connectionError ||
+            DioExceptionType.connectionTimeout ||
+            DioExceptionType.sendTimeout ||
+            DioExceptionType.receiveTimeout => WorkoutExceptionKind.transport,
+            _ => WorkoutExceptionKind.unexpected,
+          };
+
     return WorkoutException(
       _extractErrorMessage(error),
       statusCode: error.response?.statusCode,
+      kind: kind,
+      cause: error,
     );
   }
 

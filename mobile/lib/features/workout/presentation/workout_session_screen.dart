@@ -357,6 +357,13 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen>
         return;
       }
 
+      if (completed.status != 'completed') {
+        throw const WorkoutException(
+          'Could not confirm whether this workout finished. Check status or retry Finish.',
+          kind: WorkoutExceptionKind.finishOutcomeUnknown,
+        );
+      }
+
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (context) {
@@ -1524,7 +1531,8 @@ class _SetLogSheetState extends State<_SetLogSheet> {
   void initState() {
     super.initState();
 
-    final suggestedWeight = widget.workoutSet.weightKg ??
+    final suggestedWeight =
+        widget.workoutSet.weightKg ??
         (!widget.workoutSet.isCompleted
             ? widget.recommendation?.achievableWeightKg
             : null) ??

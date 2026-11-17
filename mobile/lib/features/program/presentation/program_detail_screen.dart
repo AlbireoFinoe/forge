@@ -98,6 +98,7 @@ class _ProgramDetailScreenState extends ConsumerState<ProgramDetailScreen> {
     final workoutState = ref.watch(workoutControllerProvider);
 
     final currentWorkout = workoutState.value?.currentWorkout;
+    final workoutAvailabilityKnown = workoutState.value != null;
 
     if (!_didScheduleInitialFocus && initialDayId != null) {
       _didScheduleInitialFocus = true;
@@ -133,6 +134,20 @@ class _ProgramDetailScreenState extends ConsumerState<ProgramDetailScreen> {
             ForgeSpacing.xxl,
           ),
           children: [
+            if (workoutState.hasError && !workoutAvailabilityKnown)
+              MaterialBanner(
+                content: const Text('Could not check workout status.'),
+                actions: [
+                  TextButton(
+                    onPressed: () async {
+                      await ref
+                          .read(workoutControllerProvider.notifier)
+                          .refresh();
+                    },
+                    child: const Text('RETRY'),
+                  ),
+                ],
+              ),
             _ProgramHeader(program: program),
 
             const SizedBox(height: ForgeSpacing.xxl),
@@ -154,7 +169,8 @@ class _ProgramDetailScreenState extends ConsumerState<ProgramDetailScreen> {
                     : currentWorkout?.programDayId == days[index].id ||
                           days[index].dayOrder == 1,
                 isStarting: _startingDayId == days[index].id,
-                startBlocked: _startingDayId != null,
+                startBlocked:
+                    _startingDayId != null || !workoutAvailabilityKnown,
                 onStart: () {
                   _startWorkout(days[index]);
                 },
@@ -338,93 +354,96 @@ class _ProgramDayCard extends StatelessWidget {
               : ForgeColors.outline,
         ),
       ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          initiallyExpanded: initiallyExpanded,
-          tilePadding: const EdgeInsets.fromLTRB(
-            ForgeSpacing.lg,
-            ForgeSpacing.md,
-            ForgeSpacing.lg,
-            ForgeSpacing.md,
-          ),
-          childrenPadding: const EdgeInsets.fromLTRB(
-            ForgeSpacing.lg,
-            0,
-            ForgeSpacing.lg,
-            ForgeSpacing.lg,
-          ),
-          iconColor: isCurrentWorkout
-              ? ForgeColors.primary
-              : ForgeColors.textSecondary,
-          collapsedIconColor: ForgeColors.textMuted,
-          title: _DayHeader(day: day, isCurrentWorkout: isCurrentWorkout),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 7),
-            child: Text(
-              '${weekdayLabel(day.dayOfWeek)}'
-              ' \u2022 '
-              '${day.estimatedDurationMinutes} min'
-              ' \u2022 '
-              '${day.exercises.length} exercises'
-              ' \u2022 '
-              '$totalSets sets',
-              style: Theme.of(context).textTheme.bodySmall
-                  ?.copyWith(color: ForgeColors.textSecondary),
+      child: Material(
+        color: Colors.transparent,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            initiallyExpanded: initiallyExpanded,
+            tilePadding: const EdgeInsets.fromLTRB(
+              ForgeSpacing.lg,
+              ForgeSpacing.md,
+              ForgeSpacing.lg,
+              ForgeSpacing.md,
             ),
-          ),
-          children: [
-            const Divider(color: ForgeColors.outline),
+            childrenPadding: const EdgeInsets.fromLTRB(
+              ForgeSpacing.lg,
+              0,
+              ForgeSpacing.lg,
+              ForgeSpacing.lg,
+            ),
+            iconColor: isCurrentWorkout
+                ? ForgeColors.primary
+                : ForgeColors.textSecondary,
+            collapsedIconColor: ForgeColors.textMuted,
+            title: _DayHeader(day: day, isCurrentWorkout: isCurrentWorkout),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 7),
+              child: Text(
+                '${weekdayLabel(day.dayOfWeek)}'
+                ' \u2022 '
+                '${day.estimatedDurationMinutes} min'
+                ' \u2022 '
+                '${day.exercises.length} exercises'
+                ' \u2022 '
+                '$totalSets sets',
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: ForgeColors.textSecondary),
+              ),
+            ),
+            children: [
+              const Divider(color: ForgeColors.outline),
 
-            const SizedBox(height: 4),
+              const SizedBox(height: 4),
 
-            for (var index = 0; index < day.exercises.length; index++) ...[
-              _ExerciseRow(exercise: day.exercises[index]),
-              if (index < day.exercises.length - 1)
-                const Divider(height: 1, color: ForgeColors.outline),
-            ],
+              for (var index = 0; index < day.exercises.length; index++) ...[
+                _ExerciseRow(exercise: day.exercises[index]),
+                if (index < day.exercises.length - 1)
+                  const Divider(height: 1, color: ForgeColors.outline),
+              ],
 
-            const SizedBox(height: ForgeSpacing.lg),
+              const SizedBox(height: ForgeSpacing.lg),
 
-            if (isCurrentWorkout)
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: onResume,
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  label: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 13),
-                    child: Text('RESUME WORKOUT'),
+              if (isCurrentWorkout)
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: onResume,
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 13),
+                      child: Text('RESUME WORKOUT'),
+                    ),
                   ),
-                ),
-              )
-            else
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: anotherWorkoutIsActive || startBlocked
-                      ? null
-                      : onStart,
-                  icon: isStarting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.play_arrow_rounded),
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    child: Text(
-                      isStarting
-                          ? 'STARTING...'
-                          : anotherWorkoutIsActive
-                          ? 'WORKOUT ACTIVE'
-                          : 'START WORKOUT',
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: anotherWorkoutIsActive || startBlocked
+                        ? null
+                        : onStart,
+                    icon: isStarting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.play_arrow_rounded),
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      child: Text(
+                        isStarting
+                            ? 'STARTING...'
+                            : anotherWorkoutIsActive
+                            ? 'WORKOUT ACTIVE'
+                            : 'START WORKOUT',
+                      ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
