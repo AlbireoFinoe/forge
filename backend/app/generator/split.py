@@ -1,5 +1,5 @@
 ﻿from dataclasses import dataclass
-from itertools import permutations
+from itertools import combinations, permutations
 
 from app.generator.context import (
     GeneratorContext,
@@ -817,7 +817,7 @@ def _build_blueprints(
     )
 
 
-def _weekday_distance(
+def weekday_distance(
     day_a: int,
     day_b: int,
 ) -> int:
@@ -835,7 +835,7 @@ def _sport_penalty(
     training_day: int,
 ) -> float:
 
-    distance = _weekday_distance(
+    distance = weekday_distance(
         training_day,
         sport.day_of_week,
     )
@@ -920,7 +920,7 @@ def _recovery_penalty_between_sessions(
     second_day: int,
 ) -> float:
 
-    distance = _weekday_distance(
+    distance = weekday_distance(
         first_day,
         second_day,
     )
@@ -971,28 +971,27 @@ def _recovery_penalty_between_sessions(
     return penalty
 
 
-def _score_assignment_recovery(
+def _assignment_recovery_scores(
     context: GeneratorContext,
     assignment: tuple[SessionBlueprint, ...],
     days: tuple[int, ...],
-) -> float:
-
-    score = 0.0
-
-    for index in range(
-        len(assignment) - 1
-    ):
-        score += (
-            _recovery_penalty_between_sessions(
-                context=context,
-                first=assignment[index],
-                second=assignment[index + 1],
-                first_day=days[index],
-                second_day=days[index + 1],
-            )
+) -> list[float]:
+    scores = [0.0] * len(assignment)
+    for first, second in combinations(range(len(assignment)), 2):
+        first_day = days[first]
+        second_day = days[second]
+        penalty = _recovery_penalty_between_sessions(
+            context=context,
+            first=assignment[first],
+            second=assignment[second],
+            first_day=first_day,
+            second_day=second_day,
         )
+        # Charge the later session along the shorter arc of the week.
+        later = second if (second_day - first_day) % 7 <= 3 else first
+        scores[later] += penalty
 
-    return score
+    return scores
 
 
 def generate_split_plan(
@@ -1033,8 +1032,8 @@ def generate_split_plan(
                 )
             )
 
-        recovery_score = (
-            _score_assignment_recovery(
+        recovery_score = sum(
+            _assignment_recovery_scores(
                 context,
                 assignment,
                 days,
@@ -1058,13 +1057,12 @@ def generate_split_plan(
             "Unable to create training split"
         )
 
-    total_recovery_score = (
-        _score_assignment_recovery(
-            context,
-            best_assignment,
-            days,
-        )
+    recovery_scores = _assignment_recovery_scores(
+        context,
+        best_assignment,
+        days,
     )
+    total_recovery_score = sum(recovery_scores)
 
     sessions = []
 
@@ -1095,19 +1093,7 @@ def generate_split_plan(
                 "SPORT_FATIGUE_ADJUSTMENT"
             )
 
-        recovery_score = 0.0
-
-        if index > 1:
-            recovery_score += (
-                _recovery_penalty_between_sessions(
-                    context=context,
-                    first=best_assignment[index - 2],
-                    second=blueprint,
-                    first_day=days[index - 2],
-                    second_day=day,
-                )
-            )
-
+        recovery_score = recovery_scores[index - 1]
         if recovery_score > 0:
             reason_codes.append(
                 "RECOVERY_SPACING_ADJUSTMENT"

@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ProgramWarningResponse(BaseModel):
@@ -62,7 +62,7 @@ class ProgramDayResponse(BaseModel):
 
     name: str
 
-    estimated_duration_minutes: int
+    estimated_duration_minutes: int = Field(ge=1, le=240)
 
     exercises: list[
         ProgramExerciseResponse
