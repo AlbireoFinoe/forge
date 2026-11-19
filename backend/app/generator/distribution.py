@@ -6,7 +6,7 @@ from app.generator.context import GeneratorContext
 from app.generator.fatigue import (
     training_capacity_factor,
 )
-from app.generator.split import SplitPlan
+from app.generator.split import SplitPlan, weekday_distance
 from app.generator.volume import (
     MAX_EFFECTIVE_SETS_PER_MUSCLE_PER_DAY,
     VolumePlan,
@@ -258,22 +258,9 @@ def _selection_score(
                 - overload_threshold
             ) * 2.5
 
-    # Prefer spacing exposures.
-    ordered = sorted(
-        sessions,
-        key=lambda item: (
-            item.day_of_week
-        ),
-    )
-
-    for first, second in zip(
-        ordered,
-        ordered[1:],
-    ):
-        distance = (
-            second.day_of_week
-            - first.day_of_week
-        )
+    # Prefer spacing exposures across the repeating week.
+    for first, second in combinations(sessions, 2):
+        distance = weekday_distance(first.day_of_week, second.day_of_week)
 
         if distance == 1:
             score += 6.0
@@ -562,9 +549,11 @@ def _determine_exposure_count(
             f"{priority}"
         )
 
+    # Each selected exposure needs at least one set.
     exposure_count = min(
         desired,
         candidate_count,
+        total_sets,
     )
 
     max_per_exposure = (

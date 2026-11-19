@@ -305,7 +305,18 @@ def _validate_sessions(
     for session in (
         result.fitted_program.sessions
     ):
-        if (
+        if session.estimated_duration_minutes <= 0:
+            issues.append(
+                ValidationIssue(
+                    severity="error",
+                    code="SESSION_DURATION_INVALID",
+                    message=(
+                        f"Day {session.day_order}: "
+                        "estimated duration must be positive"
+                    ),
+                )
+            )
+        elif (
             session.estimated_duration_minutes
             > session.available_duration_minutes
         ):

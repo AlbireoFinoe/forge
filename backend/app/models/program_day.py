@@ -36,7 +36,7 @@ class ProgramDay(Base):
             name="ck_program_day_order",
         ),
         CheckConstraint(
-            "estimated_duration_minutes BETWEEN 15 AND 240",
+            "estimated_duration_minutes BETWEEN 1 AND 240",
             name="ck_program_day_duration",
         ),
     )

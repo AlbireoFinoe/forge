@@ -10,6 +10,8 @@ from app.generator.builder import (
 from app.generator.context import (
     GeneratorContext,
 )
+from app.generator.fitter import DurationFitterError
+from app.generator.selector import ExerciseSelectorError
 from app.generator.validator import (
     ProgramValidationReport,
     validate_program,
@@ -225,12 +227,10 @@ def generate_and_save_program(
 ) -> PersistedProgramResult:
 
     try:
-        build_result = (
-            build_program_plan(
-                db,
-                context,
-            )
-        )
+        try:
+            build_result = build_program_plan(db, context)
+        except (DurationFitterError, ExerciseSelectorError) as exc:
+            raise ProgramGenerationError(str(exc)) from exc
 
         validation_report = (
             validate_program(
